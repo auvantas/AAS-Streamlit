@@ -267,7 +267,7 @@ def check_payment_status(invoice_number):
 
 
 def main():
-    st.title("Avuant Advisory Services")
+    st.title("Auvant Advisory Services")
 
     tab1, tab2, tab3, tab4 = st.tabs(
         ["Make Payment", "Track Payment", "Pre-authorization", "Bank Details"])
