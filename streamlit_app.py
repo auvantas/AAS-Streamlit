@@ -41,38 +41,22 @@ CURRENCIES = {
     "SGD": "Singapore Dollar"
 }
 
-def get_account_balance(currency):
+def get_account_balance():
     try:
         balance = stripe.Balance.retrieve()
-        for available_balance in balance.available:
-            if available_balance.currency.upper() == currency:
-                return available_balance.amount / 100  # Convert cents to currency units
-        return 0  # Return 0 if the currency is not found
+        return {avail_balance.currency.upper(): avail_balance.amount / 100 for avail_balance in balance.available}
     except stripe.error.StripeError as e:
         st.error(f"Error retrieving account balance: {str(e)}")
         return None
 
 def estimate_stripe_fees(amount, currency):
     try:
-        intent = stripe.PaymentIntent.create(
-            amount=int(amount * 100),
-            currency=currency,
-            payment_method_types=['card'],
-        )
-        # Immediately cancel the intent as we only need it for fee calculation
-        stripe.PaymentIntent.cancel(intent.id)
-        
-        # The fee is usually available in the response
-        if hasattr(intent, 'latest_charge'):
-            charge = stripe.Charge.retrieve(intent.latest_charge)
-            return charge.balance_transaction.fee / 100  # Convert cents to currency units
+        # For simplicity, we're using a fixed rate here. In reality, Stripe's fees can vary.
+        if currency == 'USD':
+            return round(amount * 0.029 + 0.30, 2)  # 2.9% + $0.30 for US transactions
         else:
-            # If fee is not available, provide an estimate
-            if currency == 'USD':
-                return round(amount * 0.029 + 0.30, 2)  # 2.9% + $0.30 for US transactions
-            else:
-                return round(amount * 0.039 + 0.30, 2)  # 3.9% + $0.30 for international transactions
-    except stripe.error.StripeError as e:
+            return round(amount * 0.039 + 0.30, 2)  # 3.9% + $0.30 for international transactions
+    except Exception as e:
         st.error(f"Error estimating fees: {str(e)}")
         return None
 
@@ -129,27 +113,34 @@ def create_bank_account_token(country, currency, account_holder_name, account_nu
 def main():
     st.title("Stripe Payment App (Multi-Currency)")
 
+    # Fetch account balance at the start
+    account_balance = get_account_balance()
+    if not account_balance:
+        st.error("Unable to retrieve account balance. Please try again later.")
+        return
+
     currency = st.selectbox("Currency", list(CURRENCIES.keys()), 
                             index=list(CURRENCIES.keys()).index('USD'),
                             format_func=lambda x: f"{x} - {CURRENCIES[x]}")
     amount = st.number_input("Amount", min_value=0.01, step=0.01)
 
-    if st.button("Get Payment Information"):
-        max_daily_payment = get_account_balance(currency)
+    if amount > 0:
         estimated_fee = estimate_stripe_fees(amount, currency)
         clearance_time = estimate_clearance_time(currency)
+        max_daily_payment = account_balance.get(currency, 0)
 
         st.subheader("Payment Information")
-        st.write(f"Maximum daily payment: {max_daily_payment} {currency}")
-        st.write(f"Estimated fee: {estimated_fee} {currency}")
+        st.write(f"Amount to be paid: {amount} {currency}")
+        st.write(f"Estimated Stripe fee: {estimated_fee} {currency}")
         st.write(f"Estimated clearance time: {clearance_time}")
+        st.write(f"Available balance for payouts: {max_daily_payment} {currency}")
 
         if amount > max_daily_payment:
-            st.warning(f"The amount exceeds the maximum daily payment of {max_daily_payment} {currency}")
+            st.warning(f"The amount exceeds the available balance of {max_daily_payment} {currency}")
         else:
-            st.success("The amount is within the daily payment limit")
+            st.success("The amount is within the available balance")
 
-        st.write("Additional fees and charges may be incurred by your bank or card issuer.")
+        st.write("Note: Additional fees and charges may be incurred by your bank or card issuer.")
 
         payment_method = st.radio("Choose payment method:", ("Credit/Debit Card", "Bank Transfer"))
 
