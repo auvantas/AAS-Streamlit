@@ -52,6 +52,7 @@ CURRENCIES = {
 # Updated payment methods
 PAYMENT_METHODS = {
     "card": "Credit/Debit Card",
+    "us_bank_account": "Bank Transfer (ACH)",
     "acss_debit": "ACSS Debit",
     "affirm": "Affirm",
     "afterpay_clearpay": "Afterpay/Clearpay",
@@ -78,16 +79,15 @@ PAYMENT_METHODS = {
     "promptpay": "PromptPay",
     "sepa_debit": "SEPA Direct Debit",
     "sofort": "Sofort",
-    "us_bank_account": "ACH Direct Debit",
     "wechat_pay": "WeChat Pay"
 }
 
-def create_payment_intent(amount, currency, payment_method_types, invoice_number, description):
+def create_payment_intent(amount, currency, payment_method_type, invoice_number, description):
     try:
         intent = stripe.PaymentIntent.create(
             amount=int(amount * 100),
             currency=currency,
-            payment_method_types=payment_method_types,
+            payment_method_types=[payment_method_type],
             metadata={
                 'invoice_number': invoice_number,
                 'description': description
@@ -100,21 +100,31 @@ def create_payment_intent(amount, currency, payment_method_types, invoice_number
         st.error(f"Error creating PaymentIntent: {str(e)}")
         return None
 
-def estimate_payment_clearance(payment_intent_id):
-    try:
-        payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-        if payment_intent.status == 'succeeded':
-            return "Payment has already succeeded and should be cleared."
-        elif payment_intent.status == 'processing':
-            return "Payment is processing. Estimated clearance: 1-2 business days."
-        else:
-            return f"Payment status: {payment_intent.status}. Unable to estimate clearance time."
-    except stripe.error.StripeError as e:
-        st.error(f"Error checking payment status: {str(e)}")
-        return None
+def estimate_stripe_fees(amount, currency):
+    # This is a simplified fee structure. Actual fees may vary.
+    if currency == 'USD':
+        return round(amount * 0.029 + 0.30, 2)  # 2.9% + $0.30 for US transactions
+    else:
+        return round(amount * 0.039 + 0.30, 2)  # 3.9% + $0.30 for international transactions
+
+def estimate_clearance_time(currency):
+    # This is a simplified estimation. Actual times may vary.
+    standard_times = {
+        "USD": "2-3 business days",
+        "EUR": "2-3 business days",
+        "GBP": "2-3 business days",
+        "JPY": "3-5 business days",
+        "CAD": "2-3 business days",
+        "AUD": "2-3 business days",
+        "CHF": "3-5 business days",
+        "CNY": "3-5 business days",
+        "HKD": "3-5 business days",
+        "SGD": "3-5 business days"
+    }
+    return standard_times.get(currency, "5-7 business days")
 
 def main():
-    st.title("International Payment Gateway with Adaptive Pricing")
+    st.title("Avuant Advisory Services")
 
     # Generate random 7-digit invoice number
     invoice_number = str(random.randint(1000000, 9999999))
@@ -133,13 +143,34 @@ def main():
     # Amount input
     amount = st.number_input("Amount", min_value=0.01, step=0.01, value=10.00)
 
+    # Display fee and clearance estimates
+    if amount > 0:
+        estimated_fee = estimate_stripe_fees(amount, currency)
+        clearance_time = estimate_clearance_time(currency)
+        st.write(f"Estimated Stripe fee: {estimated_fee} {currency}")
+        st.write(f"Total amount (including fee): {amount + estimated_fee} {currency}")
+        st.write(f"Estimated clearance time: {clearance_time}")
+
     # Payment method selection
-    payment_methods = st.multiselect("Select Payment Methods", list(PAYMENT_METHODS.keys()),
-                                     default=["card"],
-                                     format_func=lambda x: PAYMENT_METHODS[x])
+    payment_method = st.selectbox("Select Payment Method", list(PAYMENT_METHODS.keys()),
+                                  format_func=lambda x: PAYMENT_METHODS[x])
+
+    if payment_method == "card":
+        st.subheader("Enter Card Details")
+        card_number = st.text_input("Card Number")
+        exp_month = st.text_input("Expiration Month (MM)")
+        exp_year = st.text_input("Expiration Year (YYYY)")
+        cvc = st.text_input("CVC")
+    elif payment_method == "us_bank_account":
+        st.subheader("Enter Bank Account Details")
+        account_holder_name = st.text_input("Account Holder Name")
+        account_number = st.text_input("Account Number")
+        routing_number = st.text_input("Routing Number")
+    else:
+        st.info(f"You have selected {PAYMENT_METHODS[payment_method]}. In a production environment, you would be redirected to the appropriate payment interface.")
 
     if st.button("Create Payment Intent"):
-        payment_intent = create_payment_intent(amount, currency, payment_methods, invoice_number, description)
+        payment_intent = create_payment_intent(amount, currency, payment_method, invoice_number, description)
         
         if payment_intent:
             st.success("Payment Intent created successfully!")
@@ -148,18 +179,9 @@ def main():
             # Display client secret for frontend integration
             st.info(f"Use this Client Secret to complete the payment: {payment_intent.client_secret}")
 
-            # Estimate clearance time
-            clearance_estimate = estimate_payment_clearance(payment_intent.id)
-            st.info(clearance_estimate)
-
             # Adaptive Pricing information
             st.subheader("Adaptive Pricing")
             st.write("This payment uses Adaptive Pricing, which automatically selects the best payment method based on the customer's location and preferences.")
-
-    st.markdown("---")
-    st.subheader("Available Payment Methods")
-    for method, description in PAYMENT_METHODS.items():
-        st.write(f"- **{description}** ({method})")
 
 if __name__ == "__main__":
     main()
