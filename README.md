@@ -1,5 +1,32 @@
 # Payment Gateway with Stripe
 
+Navigate through the app using the tabs at the top of the page:
+
+Make Payment
+
+Select currency and enter payment amount
+Choose payment method (Credit/Debit Card or Bank Transfer)
+Enter payment details
+Confirm payment to create a Stripe PaymentIntent
+
+
+Track Payment
+
+Enter the invoice number provided during payment or pre-authorization
+View the current status of the transaction
+
+
+Pre-authorization
+
+Select currency and enter pre-authorization amount
+Enter card details
+Create a pre-authorization, which will be valid for 7 days
+
+
+Bank Account Details
+
+Select a currency to view corresponding bank account details for direct deposits
+
 Allows for Bank Transfer and Card payments from these currencies:
 
 
