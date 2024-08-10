@@ -1,19 +1,28 @@
-# 🎈 Blank app template
+# Payment Gateway with Stripe
 
-A simple Streamlit app template for you to modify!
+Allows for Bank Transfer and Card payments from these currencies:
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+BGN (Bulgarian Lev) - Bulgaria
+CAD (Canadian Dollar) - Canada
+CHF (Swiss Franc) - Switzerland and Liechtenstein
+CNY (Chinese Yuan) - China
+CZK (Czech Koruna) - Czech Republic
+DKK (Danish Krone) - Denmark
+EUR (Euro) - Used in multiple countries including Austria, Belgium, Cyprus, Estonia, Finland, France, Germany, Greece, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Portugal, Slovakia, Slovenia, and Spain
+GBP (British Pound) - United Kingdom
+HKD (Hong Kong Dollar) - Hong Kong
+HUF (Hungarian Forint) - Hungary
+ILS (Israeli Shekel) - Israel
+NOK (Norwegian Krone) - Norway
+NZD (New Zealand Dollar) - New Zealand
+PLN (Polish Zloty) - Poland
+RON (Romanian Leu) - Romania
+SEK (Swedish Krona) - Sweden
+SGD (Singapore Dollar) - Singapore
+FAST Network - Small Amounts
+DBS Bank - Large
+TRY (Turkish Lira) - Turkey
+UGX (Ugandan Shilling) - Uganda
+USD (United States Dollar) - United States
+ZAR (South African Rand) - South Africa
 
-### How to run it on your own machine
-
-1. Install the requirements
-
-   ```
-   $ pip install -r requirements.txt
-   ```
-
-2. Run the app
-
-   ```
-   $ streamlit run streamlit_app.py
-   ```
