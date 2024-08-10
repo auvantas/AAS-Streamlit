@@ -139,7 +139,7 @@ def check_payment_status(invoice_number):
         return f"Error checking payment status: {str(e)}"
 
 def main():
-    st.title("Avuant Advisory Services")
+    st.title("Auvant Advisory Services")
 
     # Add a tab for payment creation and tracking
     tab1, tab2 = st.tabs(["Make Payment", "Track Payment"])
