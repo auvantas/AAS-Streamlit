@@ -1,0 +1,11 @@
+[api_keys]
+stripe_api_key = "pk_live_51Pm8Lr2NJx9Ctz9JfQl1tXKhaa4rITWfOFdh2b7F6hoPfmMx1WfkAEAjCgDiEGTxiJWoXOCeMVR8CjebfLDJzM4W00Z2OGi8j1"
+stripe_webhook_secret = "whsec_XSIkVe2PMZXB9xUwa1hqC0jRDZG49Agk"
+
+[app_settings]
+debug_mode = false
+log_level = "INFO"
+
+[currency_options]
+default_source = "USD"
+default_target = "EUR"
