@@ -273,7 +273,7 @@ def main():
         ["Make Payment", "Track Payment", "Pre-authorization", "Bank Details"])
 
     with tab1:
-        st.header("Payment Details")
+        st.header("Stripe Gateway Payment")
 
         invoice_number = str(random.randint(1000000, 9999999))
         description = "Advisory Services"
