@@ -162,7 +162,7 @@ def main():
             st.warning(f"Bank transfer details for {currency} are not available. Please contact support for assistance.")
         stripe_payment_method = "customer_balance"  # Use customer_balance for manual bank transfers
 
-    if st.button("Create Payment Intent"):
+    if st.button("Confirm Payment"):
         payment_intent = create_payment_intent(amount, currency, stripe_payment_method, invoice_number, description)
         
         if payment_intent:
