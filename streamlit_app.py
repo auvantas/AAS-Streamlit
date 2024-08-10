@@ -261,9 +261,65 @@ def check_payment_status(invoice_number):
 def main():
     st.title("Avuant Advisory Services")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Make Payment", "Track Payment", "Pre-authorization", "Bank Account Details"])
+    tab1, tab2, tab3 = st.tabs(["Make Payment", "Track Payment", "Pre-authorization"])
 
-    # ... (previous code for tab1 remains the same)
+    with tab1:
+        st.header("Payment Details")
+        
+        invoice_number = str(random.randint(1000000, 9999999))
+        description = "Advisory Services"
+        
+        st.write(f"Invoice Number: {invoice_number}")
+        st.write(f"Description: {description}")
+
+        currency = st.selectbox("Select Currency", list(CURRENCIES.keys()), 
+                                format_func=lambda x: f"{x} - {CURRENCIES[x]}")
+
+        amount = st.number_input("Amount", min_value=0.01, step=0.01, value=10.00)
+
+        if amount > 0:
+            estimated_fee = estimate_stripe_fees(amount, currency)
+            clearance_time = estimate_clearance_time(currency)
+            st.write(f"Estimated Stripe fee: {estimated_fee} {currency}")
+            st.write(f"Total amount (including fee): {amount + estimated_fee} {currency}")
+            st.write(f"Estimated clearance time: {clearance_time}")
+
+        payment_method = st.radio("Select Payment Method", ["Credit/Debit Card", "Bank Transfer"])
+
+        if payment_method == "Credit/Debit Card":
+            st.subheader("Enter Card Details")
+            card_number = st.text_input("Card Number")
+            exp_month = st.text_input("Expiration Month (MM)")
+            exp_year = st.text_input("Expiration Year (YYYY)")
+            cvc = st.text_input("CVC")
+            stripe_payment_method = "card"
+        else:
+            st.subheader("Enter Bank Account Details")
+            if currency in BANK_TRANSFER_REQUIREMENTS:
+                for field in BANK_TRANSFER_REQUIREMENTS[currency]:
+                    st.text_input(field)
+            else:
+                st.warning(f"Bank transfer details for {currency} are not available. Please contact support for assistance.")
+            stripe_payment_method = "customer_balance"
+
+        if st.button("Confirm Payment"):
+            payment_intent = create_payment_intent(amount, currency, stripe_payment_method, invoice_number, description)
+            
+            if payment_intent:
+                st.success("Payment Intent created successfully!")
+                st.json(payment_intent)
+                st.info(f"Use this Client Secret to complete the payment: {payment_intent.client_secret}")
+                st.info(f"Your invoice number is: {invoice_number}. Please save this for tracking your payment.")
+
+                if payment_method == "Bank Transfer":
+                    st.warning("For bank transfers, please use the payment instructions provided by our support team to complete the transaction.")
+
+                # Additional message output for payment confirmation
+                status = check_payment_status(invoice_number)
+                st.write(f"Payment Status: {status}")
+
+            st.subheader("Adaptive Pricing")
+            st.write("This payment uses Adaptive Pricing, which automatically selects the best payment method based on the customer's location and preferences.")
 
     with tab2:
         st.header("Track Your Payment or Pre-authorization")
