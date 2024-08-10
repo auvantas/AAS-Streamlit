@@ -1,17 +1,32 @@
 import streamlit as st
 import stripe
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify
 
-# Access configuration values from Streamlit secrets
-STRIPE_API_KEY = st.secrets["stripe"]["api_key"]
-STRIPE_WEBHOOK_SECRET = st.secrets["stripe"]["webhook_secret"]
+# Check if Stripe secrets are set
+if "stripe" not in st.secrets:
+    st.error("Stripe API keys are not set in Streamlit secrets.")
+    st.markdown("""
+    To set up Stripe API keys, add the following to your secrets:
+
+    ```toml
+    [stripe]
+    api_key = "your_stripe_api_key"
+    webhook_secret = "your_stripe_webhook_secret"
+    ```
+
+    For local development:
+    1. Create a `.streamlit/secrets.toml` file in your project root with the above content.
+
+    For Streamlit Cloud deployment:
+    1. Go to your app's settings in the Streamlit Cloud dashboard.
+    2. Find the "Secrets" section and add the above content.
+
+    More info: https://docs.streamlit.io/streamlit-cloud/get-started/deploy-an-app/connect-to-data-sources/secrets-management
+    """)
+    st.stop()
 
 # Initialize Stripe client
-stripe.api_key = STRIPE_API_KEY
-
-# Initialize Flask app for webhook handling
-flask_app = Flask(__name__)
+stripe.api_key = st.secrets.stripe.api_key
 
 # Updated currencies supported by Stripe
 CURRENCIES = {
@@ -79,30 +94,6 @@ def check_payment_status(payment_intent_id):
 # Simplified estimation (no real-time checks)
 def estimate_payment_clearance(payment_intent_id):
     return "Estimated clearance: 1-2 business days"
-
-@flask_app.route('/webhook', methods=['POST'])
-def stripe_webhook():
-    payload = request.data
-    sig_header = request.headers.get('Stripe-Signature')
-
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET
-        )
-    except ValueError as e:
-        return jsonify(error=str(e)), 400
-    except stripe.error.SignatureVerificationError as e:
-        return jsonify(error=str(e)), 400
-
-    # Handle the event
-    if event['type'] == 'payment_intent.succeeded':
-        payment_intent = event['data']['object']
-        print(f"Payment succeeded for PaymentIntent: {payment_intent['id']}")
-    elif event['type'] == 'payment_intent.payment_failed':
-        payment_intent = event['data']['object']
-        print(f"Payment failed for PaymentIntent: {payment_intent['id']}")
-
-    return jsonify(success=True)
 
 def main():
     st.title("Stripe Payment App (Multi-Currency)")
