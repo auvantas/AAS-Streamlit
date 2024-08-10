@@ -365,25 +365,25 @@ def main():
                 st.warning("Remember: This pre-authorization will expire in 7 days if not captured. After expiration, the funds will be released.")
                 st.info(f"You can track the status of your pre-authorization using the invoice number: {preauth_invoice_number}")
 
-    with tab4:
-        st.header("Bank Account Details")
-        st.warning("This is for direct bank deposit only. You will need to pay directly from your own bank.")
-        
-        selected_currency = st.selectbox("Select Currency", list(BANK_ACCOUNT_DETAILS.keys()))
-        
-        st.subheader(f"Account Details for {selected_currency}")
-        st.write("Account Name: Auvant Advisory Services")
-        
-        details = BANK_ACCOUNT_DETAILS[selected_currency]
-        if isinstance(details, list):  # Special case for SGD with multiple accounts
-            for i, account in enumerate(details, 1):
-                st.write(f"Account {i}:")
-                for key, value in account.items():
+        with tab4:
+            st.header("Bank Account Details")
+            st.warning("This is for direct bank deposit only. You will need to pay directly from your own bank.")
+            
+            selected_currency = st.selectbox("Select Currency", list(BANK_ACCOUNT_DETAILS.keys()))
+            
+            st.subheader(f"Account Details for {selected_currency}")
+            st.write("Account Name: Auvant Advisory Services")
+            
+            details = BANK_ACCOUNT_DETAILS[selected_currency]
+            if isinstance(details, list):  # Special case for SGD with multiple accounts
+                for i, account in enumerate(details, 1):
+                    st.write(f"Account {i}:")
+                    for key, value in account.items():
+                        st.write(f"{key}: {value}")
+                    st.write("---")
+            else:
+                for key, value in details.items():
                     st.write(f"{key}: {value}")
-                st.write("---")
-        else:
-            for key, value in details.items():
-                st.write(f"{key}: {value}")
 
 if __name__ == "__main__":
     main()
