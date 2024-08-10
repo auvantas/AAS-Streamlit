@@ -92,12 +92,12 @@ def estimate_clearance_time(currency):
     }
     return standard_times.get(currency, "5-7 business days")
 
-def create_payment_intent(amount, currency, payment_method_id=None):
+def create_payment_intent(amount, currency, payment_method_id=None, payment_method_types=None):
     try:
         intent_params = {
             "amount": int(amount * 100),  # Stripe uses cents
             "currency": currency,
-            "payment_method_types": ["card"],
+            "payment_method_types": payment_method_types or ["card"],
         }
         if payment_method_id:
             intent_params["payment_method"] = payment_method_id
@@ -109,8 +109,25 @@ def create_payment_intent(amount, currency, payment_method_id=None):
         st.error(f"Error creating PaymentIntent: {str(e)}")
         return None
 
+def create_bank_account_token(country, currency, account_holder_name, account_number, routing_number):
+    try:
+        token = stripe.Token.create(
+            bank_account={
+                "country": country,
+                "currency": currency,
+                "account_holder_name": account_holder_name,
+                "account_holder_type": "individual",
+                "account_number": account_number,
+                "routing_number": routing_number,
+            },
+        )
+        return token
+    except stripe.error.StripeError as e:
+        st.error(f"Error creating bank account token: {str(e)}")
+        return None
+
 def main():
-    st.title("Auvant Advisory Services")
+    st.title("Stripe Payment App (Multi-Currency)")
 
     currency = st.selectbox("Currency", list(CURRENCIES.keys()), 
                             index=list(CURRENCIES.keys()).index('USD'),
@@ -131,6 +148,8 @@ def main():
             st.warning(f"The amount exceeds the maximum daily payment of {max_daily_payment} {currency}")
         else:
             st.success("The amount is within the daily payment limit")
+
+        st.write("Additional fees and charges may be incurred by your bank or card issuer.")
 
         payment_method = st.radio("Choose payment method:", ("Credit/Debit Card", "Bank Transfer"))
 
@@ -164,7 +183,25 @@ def main():
                     st.error(f"Stripe error: {str(e)}")
 
         else:  # Bank Transfer
-            st.warning("Bank transfer functionality is not implemented in this demo.")
+            st.subheader("Enter Bank Account Details")
+            account_holder_name = st.text_input("Account Holder Name")
+            account_number = st.text_input("Account Number")
+            routing_number = st.text_input("Routing Number")
+
+            if st.button("Make Bank Transfer"):
+                try:
+                    country = "US" if currency == "USD" else "EU"
+                    bank_token = create_bank_account_token(country, currency, account_holder_name, account_number, routing_number)
+
+                    if bank_token:
+                        payment_method_types = ["ach_debit"] if currency == "USD" else ["sepa_debit"]
+                        payment_intent = create_payment_intent(amount, currency, bank_token.id, payment_method_types)
+                        
+                        if payment_intent:
+                            st.info(f"Payment status: {payment_intent.status}")
+                            st.info(f"Payment Intent ID: {payment_intent.id}")
+                except stripe.error.StripeError as e:
+                    st.error(f"Stripe error: {str(e)}")
 
 if __name__ == "__main__":
     main()
