@@ -1,6 +1,5 @@
 import streamlit as st
 import stripe
-from datetime import datetime, timedelta
 import random
 
 # Check if Stripe secrets are set
@@ -49,37 +48,30 @@ CURRENCIES = {
     "ZAR": "South African Rand - South Africa"
 }
 
-# Updated payment methods
-PAYMENT_METHODS = {
-    "card": "Credit/Debit Card",
-    "us_bank_account": "Bank Transfer (ACH)",
-    "acss_debit": "ACSS Debit",
-    "affirm": "Affirm",
-    "afterpay_clearpay": "Afterpay/Clearpay",
-    "alipay": "Alipay",
-    "au_becs_debit": "BECS Direct Debit",
-    "bacs_debit": "Bacs Direct Debit",
-    "bancontact": "Bancontact",
-    "blik": "BLIK",
-    "boleto": "Boleto",
-    "cashapp": "Cash App",
-    "customer_balance": "Customer Balance",
-    "eps": "EPS",
-    "fpx": "FPX",
-    "giropay": "giropay",
-    "grabpay": "GrabPay",
-    "ideal": "iDEAL",
-    "klarna": "Klarna",
-    "konbini": "Konbini",
-    "link": "Link",
-    "oxxo": "OXXO",
-    "p24": "Przelewy24",
-    "paynow": "PayNow",
-    "pix": "PIX",
-    "promptpay": "PromptPay",
-    "sepa_debit": "SEPA Direct Debit",
-    "sofort": "Sofort",
-    "wechat_pay": "WeChat Pay"
+# Updated comprehensive bank transfer requirements
+BANK_TRANSFER_REQUIREMENTS = {
+    "USD": ["Account Number", "Routing Number (ABA)", "Account Type"],
+    "EUR": ["IBAN", "BIC/SWIFT"],
+    "GBP": ["Sort Code", "Account Number"],
+    "CAD": ["Transit Number", "Institution Number", "Account Number"],
+    "AUD": ["BSB Code", "Account Number"],
+    "SGD": ["Bank Code", "Branch Code", "Account Number"],
+    "HKD": ["Bank Code", "Branch Code", "Account Number"],
+    "CNY": ["Bank Name", "Branch Name", "Account Number"],
+    "BGN": ["IBAN", "BIC/SWIFT"],  # Bulgarian Lev
+    "CHF": ["IBAN", "BIC/SWIFT"],  # Swiss Franc
+    "CZK": ["IBAN", "BIC/SWIFT"],  # Czech Koruna
+    "DKK": ["IBAN", "BIC/SWIFT"],  # Danish Krone
+    "HUF": ["IBAN", "BIC/SWIFT"],  # Hungarian Forint
+    "ILS": ["IBAN", "BIC/SWIFT"],  # Israeli Shekel
+    "NOK": ["IBAN", "BIC/SWIFT"],  # Norwegian Krone
+    "NZD": ["Bank Code", "Account Number"],  # New Zealand Dollar
+    "PLN": ["IBAN", "BIC/SWIFT"],  # Polish Zloty
+    "RON": ["IBAN", "BIC/SWIFT"],  # Romanian Leu
+    "SEK": ["IBAN", "BIC/SWIFT"],  # Swedish Krona
+    "TRY": ["IBAN", "BIC/SWIFT"],  # Turkish Lira
+    "UGX": ["Bank Name", "Branch Name", "Account Number"],  # Ugandan Shilling
+    "ZAR": ["Branch Code", "Account Number"],  # South African Rand
 }
 
 def create_payment_intent(amount, currency, payment_method_type, invoice_number, description):
@@ -152,25 +144,26 @@ def main():
         st.write(f"Estimated clearance time: {clearance_time}")
 
     # Payment method selection
-    payment_method = st.selectbox("Select Payment Method", list(PAYMENT_METHODS.keys()),
-                                  format_func=lambda x: PAYMENT_METHODS[x])
+    payment_method = st.radio("Select Payment Method", ["Credit/Debit Card", "Bank Transfer"])
 
-    if payment_method == "card":
+    if payment_method == "Credit/Debit Card":
         st.subheader("Enter Card Details")
         card_number = st.text_input("Card Number")
         exp_month = st.text_input("Expiration Month (MM)")
         exp_year = st.text_input("Expiration Year (YYYY)")
         cvc = st.text_input("CVC")
-    elif payment_method == "us_bank_account":
+        stripe_payment_method = "card"
+    else:  # Bank Transfer
         st.subheader("Enter Bank Account Details")
-        account_holder_name = st.text_input("Account Holder Name")
-        account_number = st.text_input("Account Number")
-        routing_number = st.text_input("Routing Number")
-    else:
-        st.info(f"You have selected {PAYMENT_METHODS[payment_method]}. In a production environment, you would be redirected to the appropriate payment interface.")
+        if currency in BANK_TRANSFER_REQUIREMENTS:
+            for field in BANK_TRANSFER_REQUIREMENTS[currency]:
+                st.text_input(field)
+        else:
+            st.warning(f"Bank transfer details for {currency} are not available. Please contact support for assistance.")
+        stripe_payment_method = "customer_balance"  # Use customer_balance for manual bank transfers
 
     if st.button("Create Payment Intent"):
-        payment_intent = create_payment_intent(amount, currency, payment_method, invoice_number, description)
+        payment_intent = create_payment_intent(amount, currency, stripe_payment_method, invoice_number, description)
         
         if payment_intent:
             st.success("Payment Intent created successfully!")
@@ -178,6 +171,9 @@ def main():
 
             # Display client secret for frontend integration
             st.info(f"Use this Client Secret to complete the payment: {payment_intent.client_secret}")
+
+            if payment_method == "Bank Transfer":
+                st.warning("For bank transfers, please use the payment instructions provided by our support team to complete the transaction.")
 
             # Adaptive Pricing information
             st.subheader("Adaptive Pricing")
