@@ -74,12 +74,13 @@ BANK_TRANSFER_REQUIREMENTS = {
     "ZAR": ["Branch Code", "Account Number"],  # South African Rand
 }
 
-def create_payment_intent(amount, currency, payment_method_type, invoice_number, description):
+def create_payment_intent(amount, currency, payment_method_type, invoice_number, description, capture=True):
     try:
         intent = stripe.PaymentIntent.create(
             amount=int(amount * 100),
             currency=currency,
             payment_method_types=[payment_method_type],
+            capture_method='manual' if not capture else 'automatic',
             metadata={
                 'invoice_number': invoice_number,
                 'description': description
@@ -114,13 +115,11 @@ def estimate_clearance_time(currency):
 
 def check_payment_status(invoice_number):
     try:
-        # Search for PaymentIntents with the given invoice number
         payment_intents = stripe.PaymentIntent.list(metadata={'invoice_number': invoice_number})
         
         if not payment_intents.data:
             return "No payment found with this invoice number."
         
-        # Assuming there's only one PaymentIntent per invoice number
         payment_intent = payment_intents.data[0]
         
         status_messages = {
@@ -139,15 +138,13 @@ def check_payment_status(invoice_number):
         return f"Error checking payment status: {str(e)}"
 
 def main():
-    st.title("Auvant Advisory Services")
+    st.title("Avuant Advisory Services")
 
-    # Add a tab for payment creation and tracking
-    tab1, tab2 = st.tabs(["Make Payment", "Track Payment"])
+    tab1, tab2, tab3 = st.tabs(["Make Payment", "Track Payment", "Pre-authorization"])
 
     with tab1:
         st.header("Payment Details")
         
-        # Generate random 7-digit invoice number
         invoice_number = str(random.randint(1000000, 9999999))
         description = "Advisory Services"
         
@@ -196,6 +193,10 @@ def main():
                 if payment_method == "Bank Transfer":
                     st.warning("For bank transfers, please use the payment instructions provided by our support team to complete the transaction.")
 
+                # Additional message output for payment confirmation
+                status = check_payment_status(invoice_number)
+                st.write(f"Payment Status: {status}")
+
             st.subheader("Adaptive Pricing")
             st.write("This payment uses Adaptive Pricing, which automatically selects the best payment method based on the customer's location and preferences.")
 
@@ -208,6 +209,42 @@ def main():
                 st.write(f"Payment Status: {status}")
             else:
                 st.warning("Please enter an invoice number to track your payment.")
+
+    with tab3:
+        st.header("Pre-authorization")
+        st.write("Pre-authorize a payment amount without capturing it immediately.")
+        
+        # Add prominent notice about pre-authorization expiration
+        st.warning("⚠️ Important: The pre-authorization will expire in 7 days if not captured. After expiration, the funds will be released back to the card holder.")
+
+        preauth_amount = st.number_input("Pre-authorization Amount", min_value=0.01, step=0.01, value=10.00)
+        preauth_currency = st.selectbox("Select Currency for Pre-authorization", list(CURRENCIES.keys()), 
+                                        format_func=lambda x: f"{x} - {CURRENCIES[x]}")
+
+        st.subheader("Enter Card Details for Pre-authorization")
+        preauth_card_number = st.text_input("Card Number", key="preauth_card_number")
+        preauth_exp_month = st.text_input("Expiration Month (MM)", key="preauth_exp_month")
+        preauth_exp_year = st.text_input("Expiration Year (YYYY)", key="preauth_exp_year")
+        preauth_cvc = st.text_input("CVC", key="preauth_cvc")
+
+        if st.button("Pre-authorize Payment"):
+            preauth_invoice_number = f"PREAUTH-{str(random.randint(1000000, 9999999))}"
+            preauth_description = "Pre-authorized Payment"
+
+            preauth_intent = create_payment_intent(preauth_amount, preauth_currency, "card", preauth_invoice_number, preauth_description, capture=False)
+
+            if preauth_intent:
+                st.success("Pre-authorization successful!")
+                st.json(preauth_intent)
+                st.info(f"Pre-authorization Invoice Number: {preauth_invoice_number}")
+                
+                # Additional message output for pre-authorization confirmation
+                st.write(f"Pre-authorization Status: {preauth_intent.status}")
+                expiration_date = datetime.now() + timedelta(days=7)
+                st.write(f"Pre-authorization Expiration Date: {expiration_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                # Remind user about expiration
+                st.warning("Remember: This pre-authorization will expire in 7 days if not captured. After expiration, the funds will be released.")
 
 if __name__ == "__main__":
     main()
