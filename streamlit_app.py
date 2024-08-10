@@ -1,17 +1,11 @@
 import streamlit as st
 import stripe
-import toml
-import os
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 
-# Load configuration from TOML file
-config_path = os.path.join(os.path.dirname(__file__), 'config.toml')
-config = toml.load(config_path)
-
-# Access configuration values
-STRIPE_API_KEY = config['api_keys']['stripe_api_key']
-STRIPE_WEBHOOK_SECRET = config['api_keys']['stripe_webhook_secret']
+# Access configuration values from Streamlit secrets
+STRIPE_API_KEY = st.secrets["stripe"]["api_key"]
+STRIPE_WEBHOOK_SECRET = st.secrets["stripe"]["webhook_secret"]
 
 # Initialize Stripe client
 stripe.api_key = STRIPE_API_KEY
@@ -91,12 +85,14 @@ def stripe_webhook():
     payload = request.data
     sig_header = request.headers.get('Stripe-Signature')
 
-    # **Removed webhook signature verification for demonstration purposes only!**
-    # In a production environment, ALWAYS verify the signature!
-
-    event = stripe.Webhook.construct_event(
-        payload, sig_header, STRIPE_WEBHOOK_SECRET
-    )
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
+    except stripe.error.SignatureVerificationError as e:
+        return jsonify(error=str(e)), 400
 
     # Handle the event
     if event['type'] == 'payment_intent.succeeded':
@@ -109,7 +105,7 @@ def stripe_webhook():
     return jsonify(success=True)
 
 def main():
-    st.title("Auvant Advisory Services")
+    st.title("Stripe Payment App (Multi-Currency)")
 
     operation = st.radio("Choose operation:", ("Make a Payment", "Check Payment Status"))
 
@@ -192,10 +188,4 @@ def main():
                 st.warning("Please enter a Payment Intent ID")
 
 if __name__ == "__main__":
-    import threading
-    
-    # Run Streamlit app
     main()
-    
-    # Run Flask app for webhook handling
-    threading.Thread(target=flask_app.run, kwargs={'debug': False, 'port': 5000}).start()
