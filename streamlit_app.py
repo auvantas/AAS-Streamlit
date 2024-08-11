@@ -48,34 +48,34 @@ CURRENCIES = {
     "ZAR": "South African Rand - South Africa"
 }
 
-# Pre-defined account details
+# Pre-defined account details (without Swift/BIC)
 ACCOUNT_DETAILS = {
-    "AED": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "AUD": {"Account number": "208236946", "BSB code": "774-001", "Swift/BIC": "TRWIAUS1XXX"},
-    "BGN": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "CAD": {"Account number": "200110754005", "Institution number": "621", "Transit number": "16001", "Swift/BIC": "TRWICAW1XXX"},
-    "CHF": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "CNY": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "CZK": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "DDK": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "EUR": {"IBAN": "BE60 9677 1622 9370", "Swift/BIC": "TRWIBEB1XXX"},
-    "GBP": {"Account number": "72600980", "UK sort code": "23-14-70", "IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "HKD": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "HUF": {"Account number": "12600016-16459316-39343647", "IBAN": "HU74 1260 0016 1645 9316 3934 3647", "Swift/BIC": "TRWIBEBBXXX"},
-    "ILS": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "NOK": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "NZD": {"Account number": "04-2021-0152352-80", "Swift/BIC": "TRWINZ21XXX"},
-    "PLN": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "RON": {"Account number": "RO25 BREL 0005 6019 4062 0100", "Swift/BIC": "BRELROBUXXX"},
-    "SEK": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "AED": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "AUD": {"Account number": "208236946", "BSB code": "774-001"},
+    "BGN": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "CAD": {"Account number": "200110754005", "Institution number": "621", "Transit number": "16001"},
+    "CHF": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "CNY": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "CZK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "DDK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "EUR": {"IBAN": "BE60 9677 1622 9370"},
+    "GBP": {"Account number": "72600980", "UK sort code": "23-14-70", "IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "HKD": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "HUF": {"Account number": "12600016-16459316-39343647", "IBAN": "HU74 1260 0016 1645 9316 3934 3647"},
+    "ILS": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "NOK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "NZD": {"Account number": "04-2021-0152352-80"},
+    "PLN": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "RON": {"Account number": "RO25 BREL 0005 6019 4062 0100"},
+    "SEK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "SGD": [
-        {"Account number": "986-440-6", "Bank code": "0516", "Swift/BIC": "TRWISGSGXXX", "Note": "FAST Network"},
-        {"Account number": "885-074-245-458", "Bank code": "7171", "Swift/BIC": "TRWISGSGXXX", "Note": "DBS Bank Ltd - Large Amounts"}
+        {"Account number": "986-440-6", "Bank code": "0516", "Note": "FAST Network"},
+        {"Account number": "885-074-245-458", "Bank code": "7171", "Note": "DBS Bank Ltd - Large Amounts"}
     ],
     "TRY": {"IBAN": "TR22 0010 3000 0000 0057 5537 17", "Bank name": "Fibabanka A.Ş."},
-    "UGX": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
-    "USD": {"Account number": "8313578108", "Routing number (ACH or ABA)": "026073150", "Wire routing number": "026073150", "Swift/BIC": "CMFGUS33"},
-    "ZAR": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"}
+    "UGX": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "USD": {"Account number": "8313578108", "Routing number (ACH or ABA)": "026073150", "Wire routing number": "026073150"},
+    "ZAR": {"IBAN": "GB72 TRWI 2314 7072 6009 80"}
 }
 
 # Update BANK_TRANSFER_REQUIREMENTS to remove SWIFT options
@@ -154,7 +154,7 @@ def display_bank_transfer_fields(currency, prefix):
     else:
         st.warning(f"Bank transfer details for {currency} are not available. Please contact support for assistance.")
     return fields
-
+    
 def create_wise_transfer(source_currency, target_currency, amount, account_details):
     headers = {
         "Authorization": f"Bearer {WISE_API_KEY}",
@@ -242,7 +242,7 @@ def get_delivery_estimate(transfer_id):
     else:
         st.error(f"Error retrieving delivery estimate: {response.text}")
         return None
-
+        
 def get_wise_deposit_details(profile_id, currency):
     headers = {
         "Authorization": f"Bearer {WISE_API_KEY}",
@@ -261,15 +261,14 @@ def get_wise_deposit_details(profile_id, currency):
         
         # If Wise API fails or doesn't return the expected data, use the pre-defined details
         if currency in ACCOUNT_DETAILS:
-            # Exclude SWIFT/BIC details
-            details = {k: v for k, v in ACCOUNT_DETAILS[currency].items() if 'Swift' not in k and 'BIC' not in k}
-            return {
-                "currency": {"code": currency},
-                "details": details,
-                "accountHolderName": "Auvant Advisory Services",
-                "bankFeatures": [],
-                "deprecated": False
-            }
+        details = {k: v for k, v in ACCOUNT_DETAILS[currency].items() if 'Swift' not in k and 'BIC' not in k}
+        return {
+            "currency": {"code": currency},
+            "details": details,
+            "accountHolderName": "Auvant Advisory Services",
+            "bankFeatures": [],
+            "deprecated": False
+        }
         
         st.error(f"No account details available for {currency}")
         return None
@@ -437,7 +436,7 @@ def main():
                             if 'description' in detail:
                                 st.info(detail['description'])
             else:
-                # Display pre-defined details, excluding SWIFT/BIC
+                # Display pre-defined details, excluding SWIFT
                 details = wise_deposit_details['details']
                 if isinstance(details, list):
                     for i, account in enumerate(details, 1):
