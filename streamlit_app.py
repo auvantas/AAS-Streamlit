@@ -88,7 +88,6 @@ def generate_invoice_number():
 
 def create_payment_intent(amount, currency, payment_method_type, description, invoice_number):
     try:
-        # Remove automatic_payment_methods if specifying payment_method_types
         intent = stripe.PaymentIntent.create(
             amount=int(amount * 100),  # Stripe expects amount in cents
             currency=currency,
@@ -185,13 +184,8 @@ def main():
         payment_method = st.radio("Select Payment Method", ["Credit/Debit Card", "Bank Transfer"], key="tab1_payment_method")
 
         if payment_method == "Credit/Debit Card":
-            st.subheader("Enter Card Details")
-            card_number = st.text_input("Card Number")
-            exp_month = st.text_input("Expiration Month (MM)")
-            exp_year = st.text_input("Expiration Year (YYYY)")
-            cvc = st.text_input("CVC")
-            card_holder_name = st.text_input("Card Holder Name")
             payment_method_type = "card"
+            st.info("For security reasons, card details will be collected on a separate secure page.")
         
         else:  # Bank Transfer
             st.subheader("Enter Bank Account Details")
@@ -216,7 +210,7 @@ def main():
                 st.error(f"Bank transfers are not supported for {currency}")
                 payment_method_type = None
 
-        if st.button("Confirm Payment", key="tab1_confirm_payment"):
+        if st.button("Proceed with Payment", key="tab1_proceed_payment"):
             payment_intent = create_payment_intent(
                 amount,
                 currency,
@@ -226,38 +220,29 @@ def main():
             )
             
             if payment_intent:
-                try:
-                    if payment_method == "Credit/Debit Card":
-                        payment_method = stripe.PaymentMethod.create(
-                            type="card",
-                            card={
-                                "number": card_number,
-                                "exp_month": exp_month,
-                                "exp_year": exp_year,
-                                "cvc": cvc,
-                            },
-                            billing_details={"name": card_holder_name}
-                        )
-                    else:  # Bank Transfer
-                        payment_method = stripe.PaymentMethod.create(
-                            type=payment_method_type,
-                            billing_details={"name": user_bank_details["Account holder"]},
-                            **{payment_method_type: user_bank_details}
-                        )
-
-                    confirmed_intent = confirm_payment(payment_intent.id, payment_method.id)
-
-                    if confirmed_intent and confirmed_intent.status == 'succeeded':
-                        st.success("Payment confirmed successfully!")
-                        st.json(confirmed_intent)
-                    elif confirmed_intent and confirmed_intent.status == 'requires_action':
-                        st.warning("This payment requires additional action. Please check your email or contact support.")
-                        st.json(confirmed_intent)
-                    else:
-                        st.error("Payment could not be confirmed. Please try again or contact support.")
-
-                except stripe.error.StripeError as e:
-                    st.error(f"Error processing payment: {str(e)}")
+                st.success("Payment Intent created successfully!")
+                st.json(payment_intent)
+                
+                if payment_method == "Credit/Debit Card":
+                    st.info("To complete your card payment, please follow these steps:")
+                    st.markdown("""
+                    1. Copy the Client Secret below.
+                    2. Go to our secure payment page: [Secure Payment Page URL]
+                    3. Enter the Client Secret and your card details.
+                    4. Complete the payment process on that page.
+                    """)
+                    st.info(f"Client Secret: {payment_intent.client_secret}")
+                else:  # Bank Transfer
+                    st.info("To complete your bank transfer, please follow these steps:")
+                    st.markdown("""
+                    1. Log into your online banking platform.
+                    2. Set up a new payment using the bank details provided.
+                    3. Use the Payment Intent ID as the payment reference.
+                    4. Complete the transfer for the specified amount.
+                    """)
+                    st.info(f"Payment Intent ID (use as reference): {payment_intent.id}")
+                    
+                st.info(f"Your invoice number is: {invoice_number}. Please save this for tracking your payment.")
             else:
                 st.error("Failed to create Payment Intent. Please try again.")
                 
