@@ -261,14 +261,14 @@ def get_wise_deposit_details(profile_id, currency):
         
         # If Wise API fails or doesn't return the expected data, use the pre-defined details
         if currency in ACCOUNT_DETAILS:
-        details = {k: v for k, v in ACCOUNT_DETAILS[currency].items() if 'Swift' not in k and 'BIC' not in k}
-        return {
-            "currency": {"code": currency},
-            "details": details,
-            "accountHolderName": "Auvant Advisory Services",
-            "bankFeatures": [],
-            "deprecated": False
-        }
+            details = {k: v for k, v in ACCOUNT_DETAILS[currency].items() if 'Swift' not in k and 'BIC' not in k}
+            return {
+                "currency": {"code": currency},
+                "details": details,
+                "accountHolderName": "Auvant Advisory Services",
+                "bankFeatures": [],
+                "deprecated": False
+            }
         
         st.error(f"No account details available for {currency}")
         return None
