@@ -24,8 +24,8 @@ if "stripe" not in st.secrets:
     st.stop()
 
 # Initialize Stripe and Wise API keys
-stripe.api_key = st.secrets.stripe.api_key
-WISE_API_KEY = st.secrets.wise.api_key
+stripe.api_key = st.secrets.stripe.stripe_api_key
+WISE_API_KEY = st.secrets.wise.WISE_API_KEY  
 WISE_API_URL = "https://api.transferwise.com"
 WISE_PROFILE_ID = st.secrets.wise.profile_id
 
