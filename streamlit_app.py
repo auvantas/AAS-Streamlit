@@ -78,17 +78,16 @@ ACCOUNT_DETAILS = {
 def generate_invoice_number():
     return f"INV-{random.randint(1000000, 9999999)}"
 
-def create_payment_intent(amount, currency, payment_method_type, invoice_number, description):
+def create_payment_intent(amount, currency, description, invoice_number):
     try:
         intent = stripe.PaymentIntent.create(
-            amount=int(amount * 100),
+            amount=int(amount * 100),  # Amount in cents
             currency=currency,
-            payment_method_types=[payment_method_type],
+            description=description,
             metadata={
-                'invoice_number': invoice_number,
-                'description': description
+                'invoice_number': invoice_number
             },
-            automatic_payment_methods={"enabled": True, "allow_redirects": "always"}
+            automatic_payment_methods={"enabled": True}
         )
         return intent
     except stripe.error.StripeError as e:
@@ -164,18 +163,13 @@ def main():
 
         if payment_method == "Credit/Debit Card":
             st.subheader("Enter Card Details")
-            card_number = st.text_input("Card Number", key="tab1_card_number")
-            exp_month = st.text_input("Expiration Month (MM)", key="tab1_exp_month")
-            exp_year = st.text_input("Expiration Year (YYYY)", key="tab1_exp_year")
-            cvc = st.text_input("CVC", key="tab1_cvc")
-            stripe_payment_method = "card"
+            st.write("Card details will be collected securely by Stripe.")
         else:
             st.subheader("Bank Transfer")
             st.info("For bank transfers, please use the details provided in the 'Direct Bank Deposit' tab.")
-            stripe_payment_method = "customer_balance"
 
         if st.button("Confirm Payment", key="tab1_confirm_payment"):
-            payment_intent = create_payment_intent(amount, currency, stripe_payment_method, invoice_number, description)
+            payment_intent = create_payment_intent(amount, currency, description, invoice_number)
             
             if payment_intent:
                 st.success("Payment Intent created successfully!")
@@ -188,7 +182,7 @@ def main():
 
                 status, _ = check_payment_status(invoice_number)
                 st.write(f"Payment Status: {status}")
-
+                
     with tab2:
         st.header("Track Your Payment")
         tracking_identifier = st.text_input("Enter your invoice number or transfer ID", key="tab2_tracking_identifier")
