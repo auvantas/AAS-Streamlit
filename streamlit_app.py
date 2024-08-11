@@ -157,40 +157,41 @@ def display_bank_transfer_fields(currency, prefix):
         st.warning(f"Bank transfer details for {currency} are not available. Please contact support for assistance.")
     return fields
     
-def create_wise_transfer(source_currency, target_currency, amount, account_details):
-    headers = {
-        "Authorization": f"Bearer {WISE_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    quote_data = {
-        "sourceCurrency": source_currency,
-        "targetCurrency": target_currency,
-        "sourceAmount": amount
-    }
-    quote_response = requests.post(f"{WISE_API_URL}/v2/quotes", headers=headers, json=quote_data)
-    quote = quote_response.json()
-    
-    account_data = {
-        "currency": target_currency,
-        "type": "iban",  # Adjust based on the account type
-        "details": account_details
-    }
-    account_response = requests.post(f"{WISE_API_URL}/v1/accounts", headers=headers, json=account_data)
-    account = account_response.json()
-    
-    transfer_data = {
-        "targetAccount": account["id"],
-        "quoteUuid": quote["id"],
-        "customerTransactionId": str(random.randint(1000000000, 9999999999)),
-        "details": {
-            "reference": "Advisory Services"
+def create_wise_transfer(source_currency, target_currency, amount, user_details):
+    try:
+        # Define the API endpoint and headers
+        url = "https://api.transferwise.com/v1/transfers"
+        headers = {
+            'Authorization': f'Bearer {WISE_API_KEY}',
+            'Content-Type': 'application/json'
         }
-    }
-    transfer_response = requests.post(f"{WISE_API_URL}/v1/transfers", headers=headers, json=transfer_data)
-    transfer = transfer_response.json()
-    
-    return transfer
+
+        # Construct the payload with necessary details
+        payload = {
+            "sourceCurrency": source_currency,
+            "targetCurrency": target_currency,
+            "sourceAmount": amount,
+            "targetAccount": st.session_state.target_account_id,  # Assuming you've created and stored the target account ID
+            "quote": st.session_state.quote_id,  # Assuming you've created and stored a quote ID
+            "customerTransactionId": st.session_state.transfer_id,
+            "details": {
+                "reference": f"Invoice {st.session_state.invoice_number}"
+            }
+        }
+
+        # Make the API request
+        response = requests.post(url, headers=headers, json=payload)
+        response_data = response.json()
+
+        # Check for errors in the response
+        if response.status_code != 201:  # 201 Created is the expected status code
+            raise Exception(response_data.get("errorCode", "Unknown error"))
+
+        # Return the transfer data
+        return response_data
+    except Exception as e:
+        logger.error(f"Error in create_wise_transfer: {str(e)}")
+        raise
 
 def check_payment_status(identifier):
     # First, check Stripe payment status
@@ -454,7 +455,7 @@ def main():
             if 'invoice_number' not in st.session_state:
                 st.session_state.invoice_number = generate_invoice_number()
             if 'transfer_id' not in st.session_state:
-                st.session_state.transfer_id = f"WT-{random.randint(1000000, 9999999)}"  # Simulated Wise Transfer ID
+                st.session_state.transfer_id = f"WT-{random.randint(1000000, 9999999)}"
 
             st.info(f"Your Invoice Number: {st.session_state.invoice_number}")
             st.info(f"Your Wise Transfer ID: {st.session_state.transfer_id}")
@@ -486,7 +487,8 @@ def main():
                                 "wise_transfer_id": transfer['id'],
                                 "currency": selected_currency,
                                 "amount": amount,
-                                "user_details": user_details
+                                "status": transfer.get('status', 'Unknown'),
+                                "estimated_delivery": transfer.get('estimatedDeliveryDate', 'Unknown')
                             })
                             st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
                         else:
@@ -495,8 +497,6 @@ def main():
                         
                     except Exception as e:
                         st.error(f"Error initiating transfer: {str(e)}")
-                        if DEBUG_MODE:
-                            st.error(f"Debug info: {type(e).__name__}, {str(e)}")
                         logger.exception("Error in transfer initiation")
                 else:
                     st.warning("Please fill in all required transfer details.")
