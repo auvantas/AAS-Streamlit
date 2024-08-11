@@ -288,6 +288,19 @@ def get_wise_deposit_details(profile_id, currency):
                 "deprecated": False
             }
         return None
+        
+def create_wise_transfer(source_currency, target_currency, amount, user_details):
+    try:
+        # Simulate API call (replace with actual API call in production)
+        response_data = {
+            "id": st.session_state.transfer_id,
+            "status": "created",
+            # Add other fields as needed
+        }
+        return response_data
+    except Exception as e:
+        logger.error(f"Error in create_wise_transfer: {str(e)}")
+        raise
 
 def main():
     st.title("Auvant Advisory Services")
@@ -463,24 +476,28 @@ def main():
 
             if st.button("Confirm Transfer Details", key="tab4_confirm_transfer"):
                 if all(user_details.values()):
-                    # Here we would typically process the transfer details
-                    # For this example, we'll simulate creating a Wise transfer
                     try:
                         transfer = create_wise_transfer(selected_currency, selected_currency, amount, user_details)
                         
-                        st.success("Transfer initiated successfully!")
-                        st.json({
-                            "invoice_number": st.session_state.invoice_number,
-                            "wise_transfer_id": st.session_state.transfer_id,
-                            "currency": selected_currency,
-                            "amount": amount,
-                            "user_details": user_details
-                        })
-                        
-                        st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
+                        if 'id' in transfer:
+                            st.success("Transfer initiated successfully!")
+                            st.json({
+                                "invoice_number": st.session_state.invoice_number,
+                                "wise_transfer_id": transfer['id'],
+                                "currency": selected_currency,
+                                "amount": amount,
+                                "user_details": user_details
+                            })
+                            st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
+                        else:
+                            st.error("Transfer initiated, but no transfer ID was returned. Please contact support.")
+                            logger.error(f"Transfer initiated without ID. Response: {transfer}")
                         
                     except Exception as e:
                         st.error(f"Error initiating transfer: {str(e)}")
+                        if DEBUG_MODE:
+                            st.error(f"Debug info: {type(e).__name__}, {str(e)}")
+                        logger.exception("Error in transfer initiation")
                 else:
                     st.warning("Please fill in all required transfer details.")
         else:
