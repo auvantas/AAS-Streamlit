@@ -69,11 +69,8 @@ ACCOUNT_DETAILS = {
     "PLN": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "RON": {"Account number": "RO25 BREL 0005 6019 4062 0100"},
     "SEK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
-    "SGD": [
-        {"Account number": "986-440-6", "Bank code": "0516", "Note": "FAST Network"},
-        {"Account number": "885-074-245-458", "Bank code": "7171", "Note": "DBS Bank Ltd - Large Amounts"}
-    ],
-    "TRY": {"IBAN": "TR22 0010 3000 0000 0057 5537 17", "Bank name": "Fibabanka A.Ş."},
+    "SGD": {"Account number": "885-074-245-458", "Bank code": "7171"},
+    "TRY": {"IBAN": "TR22 0010 3000 0000 0057 5537 17",
     "UGX": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "USD": {"Account number": "8313578108", "Routing number (ACH or ABA)": "026073150", "Wire routing number": "026073150"},
     "ZAR": {"IBAN": "GB72 TRWI 2314 7072 6009 80"}
@@ -424,9 +421,9 @@ def main():
             return str(uuid.uuid4())
 
         # Select currency
-        available_currencies = [currency for currency in CURRENCIES.keys() if currency in ACCOUNT_DETAILS]
+        available_currencies = list(ACCOUNT_DETAILS.keys())
         selected_currency = st.selectbox('Select Currency', available_currencies, 
-                                         format_func=lambda x: f"{x} - {CURRENCIES[x]}", 
+                                         format_func=lambda x: f"{x} - {CURRENCIES.get(x, x)}", 
                                          key="tab4_currency")
 
         if selected_currency in ACCOUNT_DETAILS:
@@ -434,16 +431,9 @@ def main():
             st.write("Account Name: Auvant Advisory Services")
             
             our_bank_details = ACCOUNT_DETAILS[selected_currency]
-            if isinstance(our_bank_details, list):
-                for account in our_bank_details:
-                    for key, value in account.items():
-                        if 'Swift' not in key and 'BIC' not in key:
-                            st.write(f"{key}: {value}")
-                    st.write("---")
-            else:
-                for key, value in our_bank_details.items():
-                    if 'Swift' not in key and 'BIC' not in key:
-                        st.write(f"{key}: {value}")
+            for key, value in our_bank_details.items():
+                if 'Swift' not in key and 'BIC' not in key:
+                    st.write(f"{key}: {value}")
             
             st.warning("Please use these bank details to initiate your transfer.")
 
@@ -457,7 +447,7 @@ def main():
                 for field in BANK_TRANSFER_REQUIREMENTS[selected_currency]:
                     user_details[field] = st.text_input(field, key=f"tab4_{field.lower().replace(' ', '_')}")
             else:
-                st.warning(f"Bank transfer details for {selected_currency} are not fully defined. Please contact support for assistance.")
+                st.warning(f"Specific transfer requirements for {selected_currency} are not defined. Please ensure you have all necessary details for the transfer.")
 
             amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
 
