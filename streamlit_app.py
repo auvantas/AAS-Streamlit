@@ -75,6 +75,13 @@ ACCOUNT_DETAILS = {
     "ZAR": {"IBAN": "GB72 TRWI 2314 7072 6009 80"}
 }
 
+def get_stripe_public_key():
+    try:
+        return st.secrets["stripe"]["public_key"]
+    except KeyError:
+        st.error("Stripe public key is not set in Streamlit secrets. Please configure it properly.")
+        return None
+
 def generate_invoice_number():
     return f"INV-{random.randint(1000000, 9999999)}"
 
@@ -165,48 +172,51 @@ def main():
             st.subheader("Enter Card Details")
             
             # Stripe Elements setup
-            stripe_public_key = st.secrets.stripe.public_key
-            st.markdown(f"""
-            <script src="https://js.stripe.com/v3/"></script>
-            <form id="payment-form">
-              <div id="card-element">
-                <!-- A Stripe Element will be inserted here. -->
-              </div>
-              <!-- Used to display form errors. -->
-              <div id="card-errors" role="alert"></div>
-              <button id="submit-button">Submit Payment</button>
-            </form>
-            
-            <script>
-                var stripe = Stripe('{stripe_public_key}');
-                var elements = stripe.elements();
-                var card = elements.create('card');
-                card.mount('#card-element');
+            stripe_public_key = get_stripe_public_key()
+            if stripe_public_key:
+                st.markdown(f"""
+                <script src="https://js.stripe.com/v3/"></script>
+                <form id="payment-form">
+                  <div id="card-element">
+                    <!-- A Stripe Element will be inserted here. -->
+                  </div>
+                  <!-- Used to display form errors. -->
+                  <div id="card-errors" role="alert"></div>
+                  <button id="submit-button">Submit Payment</button>
+                </form>
                 
-                var form = document.getElementById('payment-form');
-                form.addEventListener('submit', function(event) {{
-                    event.preventDefault();
-                    stripe.createToken(card).then(function(result) {{
-                        if (result.error) {{
-                            var errorElement = document.getElementById('card-errors');
-                            errorElement.textContent = result.error.message;
-                        }} else {{
-                            stripeTokenHandler(result.token);
-                        }}
-                    }});
-                }});
-                
-                function stripeTokenHandler(token) {{
+                <script>
+                    var stripe = Stripe('{stripe_public_key}');
+                    var elements = stripe.elements();
+                    var card = elements.create('card');
+                    card.mount('#card-element');
+                    
                     var form = document.getElementById('payment-form');
-                    var hiddenInput = document.createElement('input');
-                    hiddenInput.setAttribute('type', 'hidden');
-                    hiddenInput.setAttribute('name', 'stripeToken');
-                    hiddenInput.setAttribute('value', token.id);
-                    form.appendChild(hiddenInput);
-                    form.submit();
-                }}
-            </script>
-            """, unsafe_allow_html=True)
+                    form.addEventListener('submit', function(event) {{
+                        event.preventDefault();
+                        stripe.createToken(card).then(function(result) {{
+                            if (result.error) {{
+                                var errorElement = document.getElementById('card-errors');
+                                errorElement.textContent = result.error.message;
+                            }} else {{
+                                stripeTokenHandler(result.token);
+                            }}
+                        }});
+                    }});
+                    
+                    function stripeTokenHandler(token) {{
+                        var form = document.getElementById('payment-form');
+                        var hiddenInput = document.createElement('input');
+                        hiddenInput.setAttribute('type', 'hidden');
+                        hiddenInput.setAttribute('name', 'stripeToken');
+                        hiddenInput.setAttribute('value', token.id);
+                        form.appendChild(hiddenInput);
+                        form.submit();
+                    }}
+                </script>
+                """, unsafe_allow_html=True)
+            else:
+                st.error("Unable to load Stripe payment form due to missing configuration.")
         else:
             st.subheader("Bank Transfer")
             st.info("For bank transfers, please use the details provided in the 'Direct Bank Deposit' tab.")
