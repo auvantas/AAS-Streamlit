@@ -427,28 +427,12 @@ def main():
             st.subheader(f"Account Details for {selected_currency}")
             st.write(f"Account Name: Auvant Advisory Services")
             
-            if 'receiveOptions' in wise_deposit_details:
-                for option in wise_deposit_details['receiveOptions']:
-                    st.write(f"Receive Option: {option}")
-                    for detail in option['details']:
-                        if not detail.get('hidden', False) and 'Swift' not in detail['title'] and 'BIC' not in detail['title']:
-                            st.write(f"{detail['title']}: {detail['body']}")
-                            if 'description' in detail:
-                                st.info(detail['description'])
-            else:
-                # Display pre-defined details, excluding SWIFT
+            # Display account details
+            if 'details' in wise_deposit_details:
                 details = wise_deposit_details['details']
-                if isinstance(details, list):
-                    for i, account in enumerate(details, 1):
-                        st.write(f"Account {i}:")
-                        for key, value in account.items():
-                            if 'Swift' not in key and 'BIC' not in key:
-                                st.write(f"{key}: {value}")
-                        st.write("---")
-                else:
-                    for key, value in details.items():
-                        if 'Swift' not in key and 'BIC' not in key:
-                            st.write(f"{key}: {value}")
+                for key, value in details.items():
+                    if 'Swift' not in key and 'BIC' not in key:
+                        st.write(f"{key}: {value}")
             
             # Display bank features if available
             if 'bankFeatures' in wise_deposit_details:
@@ -464,14 +448,21 @@ def main():
             
             amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
             
-            # Collect user's banking details
+            # Collect user's banking details based on the selected currency
             st.write("Your Banking Details:")
-            bank_fields = display_bank_transfer_fields(selected_currency, "tab4")
+            user_bank_details = {}
+            user_bank_details["Account holder"] = st.text_input("Account holder name", key="tab4_account_holder")
+            
+            if selected_currency in BANK_TRANSFER_REQUIREMENTS:
+                for field in BANK_TRANSFER_REQUIREMENTS[selected_currency]:
+                    user_bank_details[field] = st.text_input(field, key=f"tab4_{field.lower().replace(' ', '_')}")
+            else:
+                st.warning(f"Bank transfer details for {selected_currency} are not available. Please contact support for assistance.")
             
             if st.button("Initiate Transfer", key="tab4_initiate_transfer"):
-                if all(bank_fields.values()):
+                if all(user_bank_details.values()):
                     try:
-                        transfer = create_wise_transfer(selected_currency, selected_currency, amount, bank_fields)
+                        transfer = create_wise_transfer(selected_currency, selected_currency, amount, user_bank_details)
                         st.success(f"Transfer initiated successfully!")
                         st.info(f"Your Wise Transfer ID is: {transfer['id']}. Please save this for tracking your transfer.")
                         st.json(transfer)
