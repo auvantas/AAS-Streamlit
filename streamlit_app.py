@@ -163,7 +163,50 @@ def main():
 
         if payment_method == "Credit/Debit Card":
             st.subheader("Enter Card Details")
-            st.write("Card details will be collected securely by Stripe.")
+            
+            # Stripe Elements setup
+            stripe_public_key = st.secrets.stripe.public_key
+            st.markdown(f"""
+            <script src="https://js.stripe.com/v3/"></script>
+            <form id="payment-form">
+              <div id="card-element">
+                <!-- A Stripe Element will be inserted here. -->
+              </div>
+              <!-- Used to display form errors. -->
+              <div id="card-errors" role="alert"></div>
+              <button id="submit-button">Submit Payment</button>
+            </form>
+            
+            <script>
+                var stripe = Stripe('{stripe_public_key}');
+                var elements = stripe.elements();
+                var card = elements.create('card');
+                card.mount('#card-element');
+                
+                var form = document.getElementById('payment-form');
+                form.addEventListener('submit', function(event) {{
+                    event.preventDefault();
+                    stripe.createToken(card).then(function(result) {{
+                        if (result.error) {{
+                            var errorElement = document.getElementById('card-errors');
+                            errorElement.textContent = result.error.message;
+                        }} else {{
+                            stripeTokenHandler(result.token);
+                        }}
+                    }});
+                }});
+                
+                function stripeTokenHandler(token) {{
+                    var form = document.getElementById('payment-form');
+                    var hiddenInput = document.createElement('input');
+                    hiddenInput.setAttribute('type', 'hidden');
+                    hiddenInput.setAttribute('name', 'stripeToken');
+                    hiddenInput.setAttribute('value', token.id);
+                    form.appendChild(hiddenInput);
+                    form.submit();
+                }}
+            </script>
+            """, unsafe_allow_html=True)
         else:
             st.subheader("Bank Transfer")
             st.info("For bank transfers, please use the details provided in the 'Direct Bank Deposit' tab.")
