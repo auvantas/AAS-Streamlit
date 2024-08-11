@@ -185,7 +185,27 @@ def main():
 
         if payment_method == "Credit/Debit Card":
             payment_method_type = "card"
-            st.info("For security reasons, card details will be collected on a separate secure page.")
+            # --- Stripe.js integration ---
+            st.markdown(
+                f"""
+                <script src="https://js.stripe.com/v3/"></script>
+                <form id="payment-form">
+                  <div id="card-element">
+                    <!-- A Stripe Element will be inserted here. -->
+                  </div>
+                  <button id="submit-button">Submit Payment</button>
+                  <div id="card-errors" role="alert"></div>
+                </form>
+                <script>
+                  
+                  var stripe = Stripe('{STRIPE_PUBLISHABLE_KEY}');
+                  var elements = stripe.elements();
+                  var style = {
+                    base: {
+                      color: '#32325d',
+                      fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+                      fontSmoothing: 'antialiased',
+                      fontSize: '1
         
         else:  # Bank Transfer
             st.subheader("Enter Bank Account Details")
