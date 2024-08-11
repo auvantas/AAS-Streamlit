@@ -356,13 +356,13 @@ def main():
 
     with tab2:
         st.header("Track Your Payment or Transfer")
-        tracking_identifier = st.text_input("Enter your invoice number or transfer ID", key="tab2_tracking_identifier")
+        tracking_identifier = st.text_input("Enter your Wise Transfer ID or Stripe invoice number", key="tab2_tracking_identifier")
         if st.button("Track Payment/Transfer", key="tab2_track_payment"):
             if tracking_identifier:
                 status, transfer_id = check_payment_status(tracking_identifier)
                 st.write(f"Status: {status}")
                 
-                if "Sent" in status and transfer_id:
+                if "Wise Transfer Status" in status:
                     estimated_delivery = get_delivery_estimate(transfer_id)
                     if estimated_delivery:
                         st.success(f"Estimated delivery date: {estimated_delivery.strftime('%Y-%m-%d %H:%M:%S')} UTC")
@@ -378,7 +378,7 @@ def main():
                 else:
                     st.info(f"Your payment/transfer is currently being processed. Please check back later for updates.")
             else:
-                st.warning("Please enter an invoice number or transfer ID to track your payment or transfer.")
+                st.warning("Please enter a Wise Transfer ID or Stripe invoice number to track your payment or transfer.")
 
     with tab3:
         st.header("Pre-authorization")
@@ -420,7 +420,7 @@ def main():
         st.header("Direct Bank Transfer to Wise Account")
         st.info("This section allows you to initiate a direct bank transfer to our Wise account. Select a currency to view the required details and our bank information.")
 
-        # Generate an invoice number instead of a tracker ID
+        # Generate an invoice number
         invoice_number = generate_invoice_number()
 
         # Select currency
@@ -454,26 +454,28 @@ def main():
 
             amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
 
-            # Display the invoice number
-            st.info(f"Your Invoice Number: {invoice_number}")
-            st.write("Please save this Invoice Number for future reference and tracking.")
-
             if st.button("Confirm Transfer Details", key="tab4_confirm_transfer"):
                 if all(user_details.values()):
-                    # Here you would typically process the transfer details
+                    # Here we would typically process the transfer details
                     # For this example, we'll simulate creating a Wise transfer
                     try:
                         transfer = create_wise_transfer(selected_currency, selected_currency, amount, user_details)
+                        wise_transfer_id = transfer.get('id', 'N/A')
+                        
                         st.success("Transfer initiated successfully!")
                         st.json({
                             "invoice_number": invoice_number,
-                            "wise_transfer_id": transfer.get('id', 'N/A'),
+                            "wise_transfer_id": wise_transfer_id,
                             "currency": selected_currency,
                             "amount": amount,
                             "user_details": user_details
                         })
+                        
+                        st.info(f"Your Invoice Number: {invoice_number}")
+                        st.info(f"Your Wise Transfer ID: {wise_transfer_id}")
+                        st.warning("IMPORTANT: Use your Wise Transfer ID to track this transfer in the 'Track Payment' tab.")
                         st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
-                        st.warning(f"Use your Invoice Number ({invoice_number}) to track this transfer in the 'Track Payment' tab.")
+                        
                     except Exception as e:
                         st.error(f"Error initiating transfer: {str(e)}")
                 else:
