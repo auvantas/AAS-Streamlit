@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import requests
 import json
 import logging
+import uuid
 
 # Configure logging
 logging.basicConfig(level=st.secrets.app_settings.log_level)
