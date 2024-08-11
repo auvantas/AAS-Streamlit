@@ -48,6 +48,61 @@ CURRENCIES = {
     "ZAR": "South African Rand - South Africa"
 }
 
+# Pre-defined account details
+ACCOUNT_DETAILS = {
+    "AED": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "AUD": {"Account number": "208236946", "BSB code": "774-001", "Swift/BIC": "TRWIAUS1XXX"},
+    "BGN": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "CAD": {"Account number": "200110754005", "Institution number": "621", "Transit number": "16001", "Swift/BIC": "TRWICAW1XXX"},
+    "CHF": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "CNY": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "CZK": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "DDK": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "EUR": {"IBAN": "BE60 9677 1622 9370", "Swift/BIC": "TRWIBEB1XXX"},
+    "GBP": {"Account number": "72600980", "UK sort code": "23-14-70", "IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "HKD": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "HUF": {"Account number": "12600016-16459316-39343647", "IBAN": "HU74 1260 0016 1645 9316 3934 3647", "Swift/BIC": "TRWIBEBBXXX"},
+    "ILS": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "NOK": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "NZD": {"Account number": "04-2021-0152352-80", "Swift/BIC": "TRWINZ21XXX"},
+    "PLN": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "RON": {"Account number": "RO25 BREL 0005 6019 4062 0100", "Swift/BIC": "BRELROBUXXX"},
+    "SEK": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "SGD": [
+        {"Account number": "986-440-6", "Bank code": "0516", "Swift/BIC": "TRWISGSGXXX", "Note": "FAST Network"},
+        {"Account number": "885-074-245-458", "Bank code": "7171", "Swift/BIC": "TRWISGSGXXX", "Note": "DBS Bank Ltd - Large Amounts"}
+    ],
+    "TRY": {"IBAN": "TR22 0010 3000 0000 0057 5537 17", "Bank name": "Fibabanka A.Ş."},
+    "UGX": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"},
+    "USD": {"Account number": "8313578108", "Routing number (ACH or ABA)": "026073150", "Wire routing number": "026073150", "Swift/BIC": "CMFGUS33"},
+    "ZAR": {"IBAN": "GB72 TRWI 2314 7072 6009 80", "Swift/BIC": "TRWIGB2LXXX"}
+}
+
+# Update BANK_TRANSFER_REQUIREMENTS to remove SWIFT options
+BANK_TRANSFER_REQUIREMENTS = {
+    "BGN": ["IBAN"],
+    "CAD": ["Account number", "Institution number", "Transit number"],
+    "CHF": ["IBAN"],
+    "CNY": ["Account number", "Bank name", "Branch name"],
+    "CZK": ["IBAN"],
+    "DKK": ["IBAN"],
+    "EUR": ["IBAN"],
+    "GBP": ["Account number", "Sort code"],
+    "HKD": ["Account number", "Bank code", "Branch code"],
+    "HUF": ["IBAN"],
+    "ILS": ["IBAN"],
+    "NOK": ["IBAN"],
+    "NZD": ["Account number"],
+    "PLN": ["IBAN"],
+    "RON": ["IBAN"],
+    "SEK": ["IBAN"],
+    "SGD": ["Account number", "Bank code"],
+    "TRY": ["IBAN"],
+    "UGX": ["Account number", "Bank name", "Branch name"],
+    "USD": ["Account number", "Routing number (ACH or ABA)"],
+    "ZAR": ["Account number", "Branch code"]
+}
+
 def generate_invoice_number():
     return f"INV-{random.randint(1000000, 9999999)}"
 
@@ -96,8 +151,6 @@ def display_bank_transfer_fields(currency, prefix):
         for field in BANK_TRANSFER_REQUIREMENTS[currency]:
             value = st.text_input(field, key=f"{prefix}_{field.lower().replace(' ', '_')}")
             fields[field] = value
-            if field == "IBAN" and "BIC/SWIFT" in BANK_TRANSFER_REQUIREMENTS[currency]:
-                st.warning("SWIFT is for cross-border transactions which will take longer to clear.")
     else:
         st.warning(f"Bank transfer details for {currency} are not available. Please contact support for assistance.")
     return fields
@@ -197,7 +250,7 @@ def get_wise_deposit_details(profile_id, currency):
     }
     
     try:
-        # First, try to get the account details
+        # First, try to get the account details from Wise API
         response = requests.get(f"{WISE_API_URL}/v1/profiles/{profile_id}/account-details", headers=headers)
         
         if response.status_code == 200:
@@ -206,27 +259,37 @@ def get_wise_deposit_details(profile_id, currency):
                 if account['currency']['code'] == currency and account['status'] == 'ACTIVE':
                     return account
         
-        # If account details are not available, try to create an account details order
-        if response.status_code == 404 or (response.status_code == 200 and not any(account['currency']['code'] == currency for account in account_details)):
-            order_response = requests.post(
-                f"{WISE_API_URL}/v1/profiles/{profile_id}/account-details-orders",
-                headers=headers,
-                json={"currency": currency}
-            )
-            
-            if order_response.status_code == 201:
-                st.info(f"Account details for {currency} have been ordered. Please check back later.")
-                return None
+        # If Wise API fails or doesn't return the expected data, use the pre-defined details
+        if currency in ACCOUNT_DETAILS:
+            # Exclude SWIFT/BIC details
+            details = {k: v for k, v in ACCOUNT_DETAILS[currency].items() if 'Swift' not in k and 'BIC' not in k}
+            return {
+                "currency": {"code": currency},
+                "details": details,
+                "accountHolderName": "Auvant Advisory Services",
+                "bankFeatures": [],
+                "deprecated": False
+            }
         
-        st.error(f"Error retrieving deposit details: {response.text}")
+        st.error(f"No account details available for {currency}")
         return None
     
     except Exception as e:
         st.error(f"Error retrieving deposit details: {str(e)}")
+        # Use pre-defined details as fallback, excluding SWIFT/BIC
+        if currency in ACCOUNT_DETAILS:
+            details = {k: v for k, v in ACCOUNT_DETAILS[currency].items() if 'Swift' not in k and 'BIC' not in k}
+            return {
+                "currency": {"code": currency},
+                "details": details,
+                "accountHolderName": "Auvant Advisory Services",
+                "bankFeatures": [],
+                "deprecated": False
+            }
         return None
 
 def main():
-    st.title("Avuant Advisory Services")
+    st.title("Auvant Advisory Services")
 
     # Display debug information if in debug mode
     if DEBUG_MODE:
@@ -356,33 +419,46 @@ def main():
         st.header("Direct Bank Deposit")
         st.warning("This is for direct bank deposit which is quicker than using Stripe. You can view our account details or initiate a transfer.")
         
-        available_currencies = list(CURRENCIES.keys())
+        available_currencies = list(ACCOUNT_DETAILS.keys())
         selected_currency = st.selectbox("Select Currency for Deposit", available_currencies, key="tab4_currency")
         
         wise_deposit_details = get_wise_deposit_details(WISE_PROFILE_ID, selected_currency)
         
         if wise_deposit_details:
             st.subheader(f"Account Details for {selected_currency}")
-            st.write(f"Account Name: {wise_deposit_details['title']}")
+            st.write(f"Account Name: Auvant Advisory Services")
             
-            for option in wise_deposit_details['receiveOptions']:
-                st.write(f"Receive Option: {option}")
-                for detail in option['details']:
-                    if not detail.get('hidden', False):
-                        st.write(f"{detail['title']}: {detail['body']}")
-                        if 'description' in detail:
-                            st.info(detail['description'])
+            if 'receiveOptions' in wise_deposit_details:
+                for option in wise_deposit_details['receiveOptions']:
+                    st.write(f"Receive Option: {option}")
+                    for detail in option['details']:
+                        if not detail.get('hidden', False) and 'Swift' not in detail['title'] and 'BIC' not in detail['title']:
+                            st.write(f"{detail['title']}: {detail['body']}")
+                            if 'description' in detail:
+                                st.info(detail['description'])
+            else:
+                # Display pre-defined details, excluding SWIFT/BIC
+                details = wise_deposit_details['details']
+                if isinstance(details, list):
+                    for i, account in enumerate(details, 1):
+                        st.write(f"Account {i}:")
+                        for key, value in account.items():
+                            if 'Swift' not in key and 'BIC' not in key:
+                                st.write(f"{key}: {value}")
+                        st.write("---")
+                else:
+                    for key, value in details.items():
+                        if 'Swift' not in key and 'BIC' not in key:
+                            st.write(f"{key}: {value}")
             
-            st.subheader("Bank Features")
-            for feature in wise_deposit_details['bankFeatures']:
-                st.write(f"{feature['title']}: {'Supported' if feature['supported'] else 'Not Supported'}")
+            # Display bank features if available
+            if 'bankFeatures' in wise_deposit_details:
+                st.subheader("Bank Features")
+                for feature in wise_deposit_details['bankFeatures']:
+                    st.write(f"{feature['title']}: {'Supported' if feature['supported'] else 'Not Supported'}")
             
-            if wise_deposit_details['deprecated']:
-                st.warning("This account is deprecated. Please contact support for updated account details.")ow the account type
-                    st.write(f"{key.capitalize()}: {value}")
-            
-            if 'IBAN' in wise_deposit_details and 'SWIFT' in wise_deposit_details:
-                st.warning("SWIFT is for cross-border transactions which will take longer to clear.")
+            if wise_deposit_details.get('deprecated', False):
+                st.warning("This account is deprecated. Please contact support for updated account details.")
             
             st.subheader("Initiate Direct Deposit")
             st.write("Enter your banking details to initiate a transfer to our account.")
