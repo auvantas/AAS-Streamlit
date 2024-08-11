@@ -196,17 +196,33 @@ def get_wise_deposit_details(profile_id, currency):
         "Content-Type": "application/json"
     }
     
-    response = requests.get(f"{WISE_API_URL}/v1/profiles/{profile_id}/borderless-accounts", headers=headers)
-    
-    if response.status_code == 200:
-        accounts = response.json()
-        for account in accounts:
-            for balance in account['balances']:
-                if balance['currency'] == currency:
-                    return balance['bankDetails']
-        return None
-    else:
+    try:
+        # First, try to get the account details
+        response = requests.get(f"{WISE_API_URL}/v1/profiles/{profile_id}/account-details", headers=headers)
+        
+        if response.status_code == 200:
+            account_details = response.json()
+            for account in account_details:
+                if account['currency']['code'] == currency and account['status'] == 'ACTIVE':
+                    return account
+        
+        # If account details are not available, try to create an account details order
+        if response.status_code == 404 or (response.status_code == 200 and not any(account['currency']['code'] == currency for account in account_details)):
+            order_response = requests.post(
+                f"{WISE_API_URL}/v1/profiles/{profile_id}/account-details-orders",
+                headers=headers,
+                json={"currency": currency}
+            )
+            
+            if order_response.status_code == 201:
+                st.info(f"Account details for {currency} have been ordered. Please check back later.")
+                return None
+        
         st.error(f"Error retrieving deposit details: {response.text}")
+        return None
+    
+    except Exception as e:
+        st.error(f"Error retrieving deposit details: {str(e)}")
         return None
 
 def main():
@@ -347,10 +363,22 @@ def main():
         
         if wise_deposit_details:
             st.subheader(f"Account Details for {selected_currency}")
-            st.write("Account Name: Auvant Advisory Services")
+            st.write(f"Account Name: {wise_deposit_details['title']}")
             
-            for key, value in wise_deposit_details.items():
-                if key != 'accountType':  # We don't need to show the account type
+            for option in wise_deposit_details['receiveOptions']:
+                st.write(f"Receive Option: {option}")
+                for detail in option['details']:
+                    if not detail.get('hidden', False):
+                        st.write(f"{detail['title']}: {detail['body']}")
+                        if 'description' in detail:
+                            st.info(detail['description'])
+            
+            st.subheader("Bank Features")
+            for feature in wise_deposit_details['bankFeatures']:
+                st.write(f"{feature['title']}: {'Supported' if feature['supported'] else 'Not Supported'}")
+            
+            if wise_deposit_details['deprecated']:
+                st.warning("This account is deprecated. Please contact support for updated account details.")ow the account type
                     st.write(f"{key.capitalize()}: {value}")
             
             if 'IBAN' in wise_deposit_details and 'SWIFT' in wise_deposit_details:
