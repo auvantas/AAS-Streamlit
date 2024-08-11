@@ -6,6 +6,7 @@ import requests
 import json
 import logging
 import uuid
+from streamlit.components.v1 import html
 
 # Configure logging
 logging.basicConfig(level=st.secrets.app_settings.log_level)
@@ -85,16 +86,16 @@ def get_stripe_public_key():
 def generate_invoice_number():
     return f"INV-{random.randint(1000000, 9999999)}"
 
-def create_payment_intent(amount, currency, description, invoice_number):
+def create_payment_intent(amount, currency, payment_method_type, description, invoice_number):
     try:
         intent = stripe.PaymentIntent.create(
             amount=int(amount * 100),  # Amount in cents
             currency=currency,
+            payment_method_types=[payment_method_type],
             description=description,
             metadata={
                 'invoice_number': invoice_number
-            },
-            automatic_payment_methods={"enabled": True}
+            }
         )
         return intent
     except stripe.error.StripeError as e:
@@ -171,67 +172,134 @@ def main():
         if payment_method == "Credit/Debit Card":
             st.subheader("Enter Card Details")
             
-            # Stripe Elements setup
             stripe_public_key = get_stripe_public_key()
             if stripe_public_key:
-                st.markdown(f"""
+                stripe_html = f"""
                 <script src="https://js.stripe.com/v3/"></script>
                 <form id="payment-form">
-                  <div id="card-element">
-                    <!-- A Stripe Element will be inserted here. -->
-                  </div>
-                  <!-- Used to display form errors. -->
+                  <div id="card-element"><!-- Stripe Element will be inserted here --></div>
                   <div id="card-errors" role="alert"></div>
-                  <button id="submit-button">Submit Payment</button>
+                  <button id="submit-button">Pay Now</button>
                 </form>
-                
+
                 <script>
                     var stripe = Stripe('{stripe_public_key}');
                     var elements = stripe.elements();
                     var card = elements.create('card');
                     card.mount('#card-element');
-                    
+
                     var form = document.getElementById('payment-form');
                     form.addEventListener('submit', function(event) {{
                         event.preventDefault();
-                        stripe.createToken(card).then(function(result) {{
+                        stripe.createPaymentMethod('card', card).then(function(result) {{
                             if (result.error) {{
                                 var errorElement = document.getElementById('card-errors');
                                 errorElement.textContent = result.error.message;
                             }} else {{
-                                stripeTokenHandler(result.token);
+                                // Send paymentMethod.id to your server
+                                fetch('/create-payment-intent', {{
+                                    method: 'POST',
+                                    headers: {{ 'Content-Type': 'application/json' }},
+                                    body: JSON.stringify({{
+                                        payment_method_id: result.paymentMethod.id,
+                                        amount: {int(amount * 100)},
+                                        currency: '{currency}',
+                                        invoice_number: '{invoice_number}'
+                                    }})
+                                }}).then(function(result) {{
+                                    return result.json();
+                                }}).then(function(data) {{
+                                    handleServerResponse(data);
+                                }});
                             }}
                         }});
                     }});
-                    
-                    function stripeTokenHandler(token) {{
-                        var form = document.getElementById('payment-form');
-                        var hiddenInput = document.createElement('input');
-                        hiddenInput.setAttribute('type', 'hidden');
-                        hiddenInput.setAttribute('name', 'stripeToken');
-                        hiddenInput.setAttribute('value', token.id);
-                        form.appendChild(hiddenInput);
-                        form.submit();
+
+                    function handleServerResponse(response) {{
+                        if (response.error) {{
+                            // Show error from server on payment form
+                        }} else if (response.requires_action) {{
+                            // Use Stripe.js to handle required card action
+                            stripe.handleCardAction(
+                                response.payment_intent_client_secret
+                            ).then(handleStripeJsResult);
+                        }} else {{
+                            // Show success message
+                        }}
+                    }}
+
+                    function handleStripeJsResult(result) {{
+                        if (result.error) {{
+                            // Show error in payment form
+                        }} else {{
+                            // The card action has been handled
+                            // The PaymentIntent can be confirmed again on the server
+                        }}
                     }}
                 </script>
-                """, unsafe_allow_html=True)
+                """
+                html(stripe_html, height=300)
             else:
                 st.error("Unable to load Stripe payment form due to missing configuration.")
-        else:
-            st.subheader("Bank Transfer")
-            st.info("For bank transfers, please use the details provided in the 'Direct Bank Deposit' tab.")
+        
+        else:  # Bank Transfer
+            st.subheader("Enter Bank Account Details")
+            if currency == "USD":
+                account_number = st.text_input("Account Number")
+                routing_number = st.text_input("Routing Number")
+                account_holder_name = st.text_input("Account Holder Name")
+                account_holder_type = st.selectbox("Account Type", ["individual", "company"])
+                payment_method_type = "ach_debit"
+            elif currency == "EUR":
+                iban = st.text_input("IBAN")
+                account_holder_name = st.text_input("Account Holder Name")
+                payment_method_type = "sepa_debit"
+            else:
+                st.error(f"Bank transfers are not supported for {currency}")
+                payment_method_type = None
 
         if st.button("Confirm Payment", key="tab1_confirm_payment"):
-            payment_intent = create_payment_intent(amount, currency, description, invoice_number)
+            if payment_method == "Credit/Debit Card":
+                payment_intent = create_payment_intent(amount, currency, "card", description, invoice_number)
+            elif payment_method == "Bank Transfer" and payment_method_type:
+                if payment_method_type == "ach_debit":
+                    bank_account = {
+                        "country": "US",
+                        "currency": "usd",
+                        "account_holder_name": account_holder_name,
+                        "account_holder_type": account_holder_type,
+                        "routing_number": routing_number,
+                        "account_number": account_number,
+                    }
+                elif payment_method_type == "sepa_debit":
+                    bank_account = {
+                        "country": "DE",  # Example country, adjust as needed
+                        "currency": "eur",
+                        "account_holder_name": account_holder_name,
+                        "iban": iban,
+                    }
+                
+                try:
+                    payment_method = stripe.PaymentMethod.create(
+                        type=payment_method_type,
+                        billing_details={"name": account_holder_name},
+                        **{payment_method_type: bank_account}
+                    )
+                    payment_intent = create_payment_intent(amount, currency, payment_method_type, description, invoice_number)
+                    if payment_intent:
+                        stripe.PaymentIntent.confirm(payment_intent.id, payment_method=payment_method.id)
+                except stripe.error.StripeError as e:
+                    st.error(f"Error creating payment method or confirming payment: {str(e)}")
+                    payment_intent = None
+            else:
+                st.error("Invalid payment method selected")
+                payment_intent = None
             
             if payment_intent:
                 st.success("Payment Intent created successfully!")
                 st.json(payment_intent)
                 st.info(f"Use this Client Secret to complete the payment: {payment_intent.client_secret}")
                 st.info(f"Your invoice number is: {invoice_number}. Please save this for tracking your payment.")
-
-                if payment_method == "Bank Transfer":
-                    st.warning("For bank transfers, please use the payment instructions provided in the 'Direct Bank Deposit' tab.")
 
                 status, _ = check_payment_status(invoice_number)
                 st.write(f"Payment Status: {status}")
