@@ -415,45 +415,70 @@ def main():
                 st.info(f"You can track the status of your pre-authorization using the invoice number: {preauth_invoice_number}")
 
     with tab4:
-        st.header("Direct Bank Deposit")
-        st.info("This section provides bank details for direct transfer to our Wise account. Select a currency to view the corresponding bank details.")
-        
-        # Available currencies based on ACCOUNT_DETAILS
-        available_currencies = list(ACCOUNT_DETAILS.keys())
-        selected_currency = st.selectbox("Select Currency for Deposit", available_currencies, key="tab4_currency")
-        
+        st.header("Direct Bank Transfer to Wise Account")
+        st.info("This section allows you to initiate a direct bank transfer to our Wise account. Select a currency to view the required details and our bank information.")
+
+        # Function to generate a unique tracker ID
+        def generate_tracker_id():
+            return str(uuid.uuid4())
+
+        # Select currency
+        available_currencies = [currency for currency in CURRENCIES.keys() if currency in ACCOUNT_DETAILS]
+        selected_currency = st.selectbox('Select Currency', available_currencies, 
+                                         format_func=lambda x: f"{x} - {CURRENCIES[x]}", 
+                                         key="tab4_currency")
+
         if selected_currency in ACCOUNT_DETAILS:
-            st.subheader(f"Bank Details for {selected_currency} Deposit")
+            st.subheader(f"Our Bank Details for {selected_currency}")
             st.write("Account Name: Auvant Advisory Services")
             
-            details = ACCOUNT_DETAILS[selected_currency]
-            for key, value in details.items():
-                if 'Swift' not in key and 'BIC' not in key:
-                    st.write(f"{key}: {value}")
+            our_bank_details = ACCOUNT_DETAILS[selected_currency]
+            if isinstance(our_bank_details, list):
+                for account in our_bank_details:
+                    for key, value in account.items():
+                        if 'Swift' not in key and 'BIC' not in key:
+                            st.write(f"{key}: {value}")
+                    st.write("---")
+            else:
+                for key, value in our_bank_details.items():
+                    if 'Swift' not in key and 'BIC' not in key:
+                        st.write(f"{key}: {value}")
             
-            st.warning("Please use these bank details to initiate a transfer from your bank account.")
-            st.info("After initiating the transfer, please keep your transaction details for reference.")
+            st.warning("Please use these bank details to initiate your transfer.")
+
+            st.subheader("Your Transfer Details")
+            st.write("Please enter the following details for your transfer:")
+
+            user_details = {}
+            user_details["Account holder"] = st.text_input("Account holder name", key="tab4_account_holder")
             
-            # Optional: Allow user to enter transfer details for record-keeping
-            st.subheader("Transfer Details (Optional)")
-            st.write("You can enter your transfer details here for your own record-keeping.")
-            
-            amount = st.number_input("Amount Transferred", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
-            reference = st.text_input("Transfer Reference (if any)", key="tab4_reference")
-            sender_name = st.text_input("Sender's Name", key="tab4_sender_name")
-            sender_bank = st.text_input("Sender's Bank Name", key="tab4_sender_bank")
-            
-            if st.button("Save Transfer Details", key="tab4_save_details"):
-                # Here you would typically save these details to a database
-                # For this example, we'll just display a success message
-                st.success("Transfer details saved successfully!")
-                st.json({
-                    "currency": selected_currency,
-                    "amount": amount,
-                    "reference": reference,
-                    "sender_name": sender_name,
-                    "sender_bank": sender_bank
-                })
+            if selected_currency in BANK_TRANSFER_REQUIREMENTS:
+                for field in BANK_TRANSFER_REQUIREMENTS[selected_currency]:
+                    user_details[field] = st.text_input(field, key=f"tab4_{field.lower().replace(' ', '_')}")
+            else:
+                st.warning(f"Bank transfer details for {selected_currency} are not fully defined. Please contact support for assistance.")
+
+            amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
+
+            # Generate and display a tracker ID
+            tracker_id = generate_tracker_id()
+            st.info(f"Your Tracker ID: {tracker_id}")
+            st.write("Please save this Tracker ID for future reference.")
+
+            if st.button("Confirm Transfer Details", key="tab4_confirm_transfer"):
+                if all(user_details.values()):
+                    # Here you would typically process the transfer details
+                    # For this example, we'll just display the information
+                    st.success("Transfer details confirmed successfully!")
+                    st.json({
+                        "tracker_id": tracker_id,
+                        "currency": selected_currency,
+                        "amount": amount,
+                        "user_details": user_details
+                    })
+                    st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
+                else:
+                    st.warning("Please fill in all required transfer details.")
         else:
             st.error(f"Bank details for {selected_currency} are not available. Please contact support for assistance.")
 
