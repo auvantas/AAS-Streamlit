@@ -4,30 +4,24 @@ import random
 from datetime import datetime, timedelta
 import requests
 import json
+import logging
 
-# Initialize Stripe client
-if "stripe" not in st.secrets:
-    st.error("Stripe API keys are not set in Streamlit secrets.")
-    st.markdown("""
-    To set up Stripe API keys, add the following to your secrets:
-    ```toml
-    [stripe]
-    api_key = "your_stripe_api_key"
-    ```
-    For local development:
-    1. Create a `.streamlit/secrets.toml` file in your project root with the above content.
-    For Streamlit Cloud deployment:
-    1. Go to your app's settings in the Streamlit Cloud dashboard.
-    2. Find the "Secrets" section and add the above content.
-    More info: https://docs.streamlit.io/streamlit-cloud/get-started/deploy-an-app/connect-to-data-sources/secrets-management
-    """)
-    st.stop()
+# Configure logging
+logging.basicConfig(level=st.secrets.app_settings.log_level)
+logger = logging.getLogger(__name__)
 
 # Initialize Stripe and Wise API keys
 stripe.api_key = st.secrets.stripe.stripe_api_key
-WISE_API_KEY = st.secrets.wise.WISE_API_KEY  
+WISE_API_KEY = st.secrets.wise.WISE_API_KEY
 WISE_API_URL = "https://api.transferwise.com"
 WISE_PROFILE_ID = st.secrets.wise.profile_id
+
+# Debug mode setting
+DEBUG_MODE = st.secrets.app_settings.debug_mode
+
+# Default currency options
+DEFAULT_SOURCE_CURRENCY = st.secrets.currency_options.default_source
+DEFAULT_TARGET_CURRENCY = st.secrets.currency_options.default_target
 
 CURRENCIES = {
     "BGN": "Bulgarian Lev - Bulgaria",
@@ -132,12 +126,12 @@ def estimate_clearance_time(currency):
     }
     return standard_times.get(currency, "5-7 business days")
 
-def display_bank_transfer_fields(currency):
+def display_bank_transfer_fields(currency, prefix):
     fields = {}
-    fields["Account holder"] = st.text_input("Account holder")
+    fields["Account holder"] = st.text_input("Account holder", key=f"{prefix}_account_holder")
     if currency in BANK_TRANSFER_REQUIREMENTS:
         for field in BANK_TRANSFER_REQUIREMENTS[currency]:
-            value = st.text_input(field)
+            value = st.text_input(field, key=f"{prefix}_{field.lower().replace(' ', '_')}")
             fields[field] = value
             if field == "IBAN" and "BIC/SWIFT" in BANK_TRANSFER_REQUIREMENTS[currency]:
                 st.warning("SWIFT is for cross-border transactions which will take longer to clear.")
@@ -252,7 +246,15 @@ def get_wise_deposit_details(profile_id):
 def main():
     st.title("Avuant Advisory Services")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Make Payment", "Track Payment", "Pre-authorization", "Bank Account Details"])
+    # Display debug information if in debug mode
+    if DEBUG_MODE:
+        st.sidebar.write("Debug Information:")
+        st.sidebar.write(f"Stripe API Key: {stripe.api_key[:10]}...")
+        st.sidebar.write(f"Wise Profile ID: {WISE_PROFILE_ID}")
+        st.sidebar.write(f"Default Source Currency: {DEFAULT_SOURCE_CURRENCY}")
+        st.sidebar.write(f"Default Target Currency: {DEFAULT_TARGET_CURRENCY}")
+
+    tab1, tab2, tab3, tab4 = st.tabs(["Make Payment", "Track Payment", "Pre-authorization", "Direct Bank Deposit"])
 
     with tab1:
         st.header("Payment Details")
@@ -264,9 +266,10 @@ def main():
         st.write(f"Description: {description}")
 
         currency = st.selectbox("Select Currency", list(CURRENCIES.keys()), 
+                                index=list(CURRENCIES.keys()).index(DEFAULT_SOURCE_CURRENCY),
                                 format_func=lambda x: f"{x} - {CURRENCIES[x]}")
 
-        amount = st.number_input("Amount", min_value=0.01, step=0.01, value=10.00)
+        amount = st.number_input("Amount", min_value=0.01, step=0.01, value=10.00, key="tab1_amount")
 
         if amount > 0:
             estimated_fee = estimate_stripe_fees(amount, currency)
@@ -275,21 +278,21 @@ def main():
             st.write(f"Total amount (including fee): {amount + estimated_fee} {currency}")
             st.write(f"Estimated clearance time: {clearance_time}")
 
-        payment_method = st.radio("Select Payment Method", ["Credit/Debit Card", "Bank Transfer"])
+        payment_method = st.radio("Select Payment Method", ["Credit/Debit Card", "Bank Transfer"], key="tab1_payment_method")
 
         if payment_method == "Credit/Debit Card":
             st.subheader("Enter Card Details")
-            card_number = st.text_input("Card Number")
-            exp_month = st.text_input("Expiration Month (MM)")
-            exp_year = st.text_input("Expiration Year (YYYY)")
-            cvc = st.text_input("CVC")
+            card_number = st.text_input("Card Number", key="tab1_card_number")
+            exp_month = st.text_input("Expiration Month (MM)", key="tab1_exp_month")
+            exp_year = st.text_input("Expiration Year (YYYY)", key="tab1_exp_year")
+            cvc = st.text_input("CVC", key="tab1_cvc")
             stripe_payment_method = "card"
         else:
             st.subheader("Enter Bank Account Details")
-            bank_fields = display_bank_transfer_fields(currency)
+            bank_fields = display_bank_transfer_fields(currency, "tab1")
             stripe_payment_method = "customer_balance"
 
-        if st.button("Confirm Payment"):
+        if st.button("Confirm Payment", key="tab1_confirm_payment"):
             payment_intent = create_payment_intent(amount, currency, stripe_payment_method, invoice_number, description)
             
             if payment_intent:
@@ -307,8 +310,8 @@ def main():
 
     with tab2:
         st.header("Track Your Payment or Transfer")
-        tracking_invoice_number = st.text_input("Enter your invoice number")
-        if st.button("Track Payment/Transfer"):
+        tracking_invoice_number = st.text_input("Enter your invoice number", key="tab2_invoice_number")
+        if st.button("Track Payment/Transfer", key="tab2_track_payment"):
             if tracking_invoice_number:
                 status, transfer_id = check_payment_status(tracking_invoice_number)
                 st.write(f"Status: {status}")
@@ -337,17 +340,19 @@ def main():
         
         st.warning("⚠️ Important: The pre-authorization will expire in 7 days if not captured. After expiration, the funds will be released back to the card holder.")
 
-        preauth_amount = st.number_input("Pre-authorization Amount", min_value=0.01, step=0.01, value=10.00)
+        preauth_amount = st.number_input("Pre-authorization Amount", min_value=0.01, step=0.01, value=10.00, key="tab3_preauth_amount")
         preauth_currency = st.selectbox("Select Currency for Pre-authorization", list(CURRENCIES.keys()), 
-                                        format_func=lambda x: f"{x} - {CURRENCIES[x]}")
+                                        index=list(CURRENCIES.keys()).index(DEFAULT_SOURCE_CURRENCY),
+                                        format_func=lambda x: f"{x} - {CURRENCIES[x]}", 
+                                        key="tab3_preauth_currency")
 
         st.subheader("Enter Card Details for Pre-authorization")
-        preauth_card_number = st.text_input("Card Number", key="preauth_card_number")
-        preauth_exp_month = st.text_input("Expiration Month (MM)", key="preauth_exp_month")
-        preauth_exp_year = st.text_input("Expiration Year (YYYY)", key="preauth_exp_year")
-        preauth_cvc = st.text_input("CVC", key="preauth_cvc")
+        preauth_card_number = st.text_input("Card Number", key="tab3_card_number")
+        preauth_exp_month = st.text_input("Expiration Month (MM)", key="tab3_exp_month")
+        preauth_exp_year = st.text_input("Expiration Year (YYYY)", key="tab3_exp_year")
+        preauth_cvc = st.text_input("CVC", key="tab3_cvc")
 
-        if st.button("Pre-authorize Payment"):
+        if st.button("Pre-authorize Payment", key="tab3_preauth_payment"):
             preauth_invoice_number = generate_invoice_number()
             preauth_description = "Pre-authorized Payment"
 
@@ -369,7 +374,7 @@ def main():
         st.header("Direct Bank Deposit")
         st.warning("This is for direct bank deposit which is quicker than using Stripe. You can view our account details or initiate a transfer.")
         
-        selected_currency = st.selectbox("Select Currency", list(BANK_ACCOUNT_DETAILS.keys()))
+        selected_currency = st.selectbox("Select Currency", list(BANK_ACCOUNT_DETAILS.keys()), key="tab4_selected_currency")
         
         st.subheader(f"Account Details for {selected_currency}")
         st.write("Account Name: Auvant Advisory Services")
@@ -395,14 +400,16 @@ def main():
         st.subheader("Initiate Direct Deposit")
         st.write("Enter your banking details to initiate a transfer to our account.")
         
-        source_currency = st.selectbox("Your Currency", list(CURRENCIES.keys()), key="source_currency")
-        amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00)
+        source_currency = st.selectbox("Your Currency", list(CURRENCIES.keys()), 
+                                       index=list(CURRENCIES.keys()).index(DEFAULT_SOURCE_CURRENCY),
+                                       key="tab4_source_currency")
+        amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
         
         # Collect user's banking details
         st.write("Your Banking Details:")
-        bank_fields = display_bank_transfer_fields(source_currency)
+        bank_fields = display_bank_transfer_fields(source_currency, "tab4")
         
-        if st.button("Initiate Transfer"):
+        if st.button("Initiate Transfer", key="tab4_initiate_transfer"):
             if all(bank_fields.values()):
                 invoice_number = generate_invoice_number()
                 try:
