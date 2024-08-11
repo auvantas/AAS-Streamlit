@@ -88,13 +88,13 @@ def generate_invoice_number():
 
 def create_payment_intent(amount, currency, payment_method_type, description, invoice_number):
     try:
+        # Remove automatic_payment_methods if specifying payment_method_types
         intent = stripe.PaymentIntent.create(
             amount=int(amount * 100),  # Stripe expects amount in cents
             currency=currency,
             payment_method_types=[payment_method_type],
             description=description,
-            metadata={'invoice_number': invoice_number},
-            automatic_payment_methods={"enabled": True}
+            metadata={'invoice_number': invoice_number}
         )
         return intent
     except stripe.error.StripeError as e:
