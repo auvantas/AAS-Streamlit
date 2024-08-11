@@ -148,15 +148,21 @@ def main():
     with tab1:
         st.header("Payment Details")
         
-        invoice_number = generate_invoice_number()
+        currency = st.selectbox("Select Currency", list(CURRENCIES.keys()), 
+                                index=list(CURRENCIES.keys()).index(DEFAULT_SOURCE_CURRENCY),
+                                format_func=lambda x: f"{x} - {CURRENCIES[x]}",
+                                key="tab1_currency")
+
+        # Generate a new invoice number when currency changes
+        if 'previous_currency' not in st.session_state or st.session_state.previous_currency != currency:
+            st.session_state.invoice_number = generate_invoice_number()
+            st.session_state.previous_currency = currency
+
+        invoice_number = st.session_state.invoice_number
         description = "Advisory Services"
         
         st.write(f"Invoice Number: {invoice_number}")
         st.write(f"Description: {description}")
-
-        currency = st.selectbox("Select Currency", list(CURRENCIES.keys()), 
-                                index=list(CURRENCIES.keys()).index(DEFAULT_SOURCE_CURRENCY),
-                                format_func=lambda x: f"{x} - {CURRENCIES[x]}")
 
         amount = st.number_input("Amount", min_value=0.01, step=0.01, value=10.00, key="tab1_amount")
 
@@ -244,16 +250,20 @@ def main():
         
         else:  # Bank Transfer
             st.subheader("Enter Bank Account Details")
-            if currency == "USD":
-                account_number = st.text_input("Account Number")
-                routing_number = st.text_input("Routing Number")
-                account_holder_name = st.text_input("Account Holder Name")
-                account_holder_type = st.selectbox("Account Type", ["individual", "company"])
-                payment_method_type = "ach_debit"
-            elif currency == "EUR":
-                iban = st.text_input("IBAN")
-                account_holder_name = st.text_input("Account Holder Name")
-                payment_method_type = "sepa_debit"
+            if currency in ACCOUNT_DETAILS:
+                bank_fields = ACCOUNT_DETAILS[currency]
+                user_bank_details = {}
+                for field, _ in bank_fields.items():
+                    if 'Swift' not in field and 'BIC' not in field:
+                        user_bank_details[field] = st.text_input(field)
+                
+                # Determine payment method type based on currency
+                if currency == "USD":
+                    payment_method_type = "ach_debit"
+                elif currency == "EUR":
+                    payment_method_type = "sepa_debit"
+                else:
+                    payment_method_type = "bank_transfer"  # Generic type for other currencies
             else:
                 st.error(f"Bank transfers are not supported for {currency}")
                 payment_method_type = None
@@ -262,29 +272,14 @@ def main():
             if payment_method == "Credit/Debit Card":
                 payment_intent = create_payment_intent(amount, currency, "card", description, invoice_number)
             elif payment_method == "Bank Transfer" and payment_method_type:
-                if payment_method_type == "ach_debit":
-                    bank_account = {
-                        "country": "US",
-                        "currency": "usd",
-                        "account_holder_name": account_holder_name,
-                        "account_holder_type": account_holder_type,
-                        "routing_number": routing_number,
-                        "account_number": account_number,
-                    }
-                elif payment_method_type == "sepa_debit":
-                    bank_account = {
-                        "country": "DE",  # Example country, adjust as needed
-                        "currency": "eur",
-                        "account_holder_name": account_holder_name,
-                        "iban": iban,
-                    }
-                
                 try:
+                    # Create PaymentMethod for bank transfer
                     payment_method = stripe.PaymentMethod.create(
                         type=payment_method_type,
-                        billing_details={"name": account_holder_name},
-                        **{payment_method_type: bank_account}
+                        billing_details={"name": user_bank_details.get("Account holder", "")},
+                        **{payment_method_type: user_bank_details}
                     )
+                    # Create and confirm PaymentIntent
                     payment_intent = create_payment_intent(amount, currency, payment_method_type, description, invoice_number)
                     if payment_intent:
                         stripe.PaymentIntent.confirm(payment_intent.id, payment_method=payment_method.id)
