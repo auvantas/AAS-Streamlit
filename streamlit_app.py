@@ -420,9 +420,6 @@ def main():
         st.header("Direct Bank Transfer to Wise Account")
         st.info("This section allows you to initiate a direct bank transfer to our Wise account. Select a currency to view the required details and our bank information.")
 
-        # Generate an invoice number
-        invoice_number = generate_invoice_number()
-
         # Select currency
         available_currencies = list(ACCOUNT_DETAILS.keys())
         selected_currency = st.selectbox('Select Currency', available_currencies, 
@@ -440,8 +437,20 @@ def main():
             
             st.warning("Please use these bank details to initiate your transfer.")
 
+            # Generate invoice number and transfer ID
+            if 'invoice_number' not in st.session_state:
+                st.session_state.invoice_number = generate_invoice_number()
+            if 'transfer_id' not in st.session_state:
+                st.session_state.transfer_id = f"WT-{random.randint(1000000, 9999999)}"  # Simulated Wise Transfer ID
+
+            st.info(f"Your Invoice Number: {st.session_state.invoice_number}")
+            st.info(f"Your Wise Transfer ID: {st.session_state.transfer_id}")
+            st.warning("IMPORTANT: Use your Wise Transfer ID to track this transfer in the 'Track Payment' tab.")
+
             st.subheader("Your Transfer Details")
             st.write("Please enter the following details for your transfer:")
+
+            amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
 
             user_details = {}
             user_details["Account holder"] = st.text_input("Account holder name", key="tab4_account_holder")
@@ -452,28 +461,22 @@ def main():
             else:
                 st.warning(f"Specific transfer requirements for {selected_currency} are not defined. Please ensure you have all necessary details for the transfer.")
 
-            amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
-
             if st.button("Confirm Transfer Details", key="tab4_confirm_transfer"):
                 if all(user_details.values()):
                     # Here we would typically process the transfer details
                     # For this example, we'll simulate creating a Wise transfer
                     try:
                         transfer = create_wise_transfer(selected_currency, selected_currency, amount, user_details)
-                        wise_transfer_id = transfer.get('id', 'N/A')
                         
                         st.success("Transfer initiated successfully!")
                         st.json({
-                            "invoice_number": invoice_number,
-                            "wise_transfer_id": wise_transfer_id,
+                            "invoice_number": st.session_state.invoice_number,
+                            "wise_transfer_id": st.session_state.transfer_id,
                             "currency": selected_currency,
                             "amount": amount,
                             "user_details": user_details
                         })
                         
-                        st.info(f"Your Invoice Number: {invoice_number}")
-                        st.info(f"Your Wise Transfer ID: {wise_transfer_id}")
-                        st.warning("IMPORTANT: Use your Wise Transfer ID to track this transfer in the 'Track Payment' tab.")
                         st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
                         
                     except Exception as e:
