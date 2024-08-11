@@ -88,109 +88,8 @@ BANK_ACCOUNT_DETAILS = {
         "BSB code": "774-001",
         "Swift/BIC": "TRWIAUS1XXX"
     },
-    "BGN": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "CAD": {
-        "Account number": "200110754005",
-        "Institution number": "621",
-        "Transit number": "16001",
-        "Swift/BIC": "TRWICAW1XXX"
-    },
-    "CHF": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "CNY": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "CZK": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "DDK": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "EUR": {
-        "IBAN": "BE60 9677 1622 9370",
-        "Swift/BIC": "TRWIBEB1XXX"
-    },
-    "GBP": {
-        "Account number": "72600980",
-        "UK sort code": "23-14-70",
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "HKD": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "HUF": {
-        "Account number": "12600016-16459316-39343647",
-        "IBAN": "HU74 1260 0016 1645 9316 3934 3647",
-        "Swift/BIC": "TRWIBEBBXXX"
-    },
-    "ILS": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "NOK": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "NZD": {
-        "Account number": "04-2021-0152352-80",
-        "Swift/BIC": "TRWINZ21XXX"
-    },
-    "PLN": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "RON": {
-        "Account number": "RO25 BREL 0005 6019 4062 0100",
-        "Swift/BIC": "BRELROBUXXX"
-    },
-    "SEK": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "SGD": [
-        {
-            "Account number": "986-440-6",
-            "Bank code": "0516",
-            "Swift/BIC": "TRWISGSGXXX",
-            "Note": "FAST Network"
-        },
-        {
-            "Account number": "885-074-245-458",
-            "Bank code": "7171",
-            "Swift/BIC": "TRWISGSGXXX",
-            "Note": "DBS Bank Ltd - Large Amounts"
-        }
-    ],
-    "TRY": {
-        "IBAN": "TR22 0010 3000 0000 0057 5537 17",
-        "Bank name": "Fibabanka A.Ş."
-    },
-    "UGX": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    },
-    "USD": {
-        "Account number": "8313578108",
-        "Routing number (ACH or ABA)": "026073150",
-        "Wire routing number": "026073150",
-        "Swift/BIC": "CMFGUS33"
-    },
-    "ZAR": {
-        "IBAN": "GB72 TRWI 2314 7072 6009 80",
-        "Swift/BIC": "TRWIGB2LXXX"
-    }
+    # ... (keep other currency details)
 }
-
 
 def generate_invoice_number():
     return f"INV-{random.randint(1000000, 9999999)}"
@@ -281,37 +180,68 @@ def create_wise_transfer(source_currency, target_currency, amount, account_detai
     
     return transfer
 
-def check_wise_transfer_status(transfer_id):
-    headers = {
-        "Authorization": f"Bearer {WISE_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.get(f"{WISE_API_URL}/v1/transfers/{transfer_id}", headers=headers)
-    transfer = response.json()
-    
-    status_descriptions = {
-        "incoming_payment_waiting": "On its way to Wise",
-        "incoming_payment_initiated": "On its way to Wise",
-        "processing": "Processing",
-        "funds_converted": "Processing",
-        "outgoing_payment_sent": "Sent",
-        "charged_back": "Charged back",
-        "cancelled": "Cancelled",
-        "funds_refunded": "Refunded",
-        "bounced_back": "Bounced back",
-        "unknown": "Unknown"
-    }
-    
-    return status_descriptions.get(transfer['status'], "Unknown status")
+def check_payment_status(invoice_number):
+    # First, check Stripe payment status
+    try:
+        payment_intents = stripe.PaymentIntent.list(metadata={'invoice_number': invoice_number})
+        if payment_intents.data:
+            payment_intent = payment_intents.data[0]
+            return f"Stripe Payment Status: {payment_intent.status}", None
+    except stripe.error.StripeError as e:
+        return f"Error checking Stripe payment status: {str(e)}", None
 
-def get_wise_deposit_details(transfer_id):
+    # If not found in Stripe, check Wise transfer status
+    try:
+        headers = {
+            "Authorization": f"Bearer {WISE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        response = requests.get(f"{WISE_API_URL}/v1/transfers?customerTransactionId={invoice_number}", headers=headers)
+        transfers = response.json()
+        
+        if transfers:
+            transfer = transfers[0]
+            status_descriptions = {
+                "incoming_payment_waiting": "On its way to Wise",
+                "incoming_payment_initiated": "On its way to Wise",
+                "processing": "Processing",
+                "funds_converted": "Processing",
+                "outgoing_payment_sent": "Sent",
+                "charged_back": "Charged back",
+                "cancelled": "Cancelled",
+                "funds_refunded": "Refunded",
+                "bounced_back": "Bounced back",
+                "unknown": "Unknown"
+            }
+            return f"Wise Transfer Status: {status_descriptions.get(transfer['status'], 'Unknown status')}", transfer['id']
+    except Exception as e:
+        return f"Error checking Wise transfer status: {str(e)}", None
+
+    return "No payment or transfer found with this invoice number.", None
+
+def get_delivery_estimate(transfer_id):
     headers = {
         "Authorization": f"Bearer {WISE_API_KEY}",
         "Content-Type": "application/json"
     }
     
-    response = requests.get(f"{WISE_API_URL}/v1/profiles/{WISE_PROFILE_ID}/transfers/{transfer_id}/deposit-details/bank-transfer", headers=headers)
+    response = requests.get(f"{WISE_API_URL}/v1/delivery-estimates/{transfer_id}", headers=headers)
+    
+    if response.status_code == 200:
+        data = response.json()
+        estimated_delivery_date = datetime.fromisoformat(data['estimatedDeliveryDate'].replace('Z', '+00:00'))
+        return estimated_delivery_date
+    else:
+        st.error(f"Error retrieving delivery estimate: {response.text}")
+        return None
+
+def get_wise_deposit_details(profile_id):
+    headers = {
+        "Authorization": f"Bearer {WISE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    response = requests.get(f"{WISE_API_URL}/v1/profiles/{profile_id}/deposit-details/bank-transfer", headers=headers)
     
     if response.status_code == 200:
         return response.json()
@@ -322,7 +252,7 @@ def get_wise_deposit_details(transfer_id):
 def main():
     st.title("Avuant Advisory Services")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Make Payment", "Track Payment", "Pre-authorization", "Bank Account Details", "Track Wise Transfer"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Make Payment", "Track Payment", "Pre-authorization", "Bank Account Details"])
 
     with tab1:
         st.header("Payment Details")
@@ -372,18 +302,34 @@ def main():
                     st.warning("For bank transfers, please use the payment instructions provided by our support team to complete the transaction.")
 
                 # Additional message output for payment confirmation
-                status = check_payment_status(invoice_number)
+                status, _ = check_payment_status(invoice_number)
                 st.write(f"Payment Status: {status}")
 
     with tab2:
-        st.header("Track Your Payment or Pre-authorization")
+        st.header("Track Your Payment or Transfer")
         tracking_invoice_number = st.text_input("Enter your invoice number")
-        if st.button("Track Payment/Pre-authorization"):
+        if st.button("Track Payment/Transfer"):
             if tracking_invoice_number:
-                status = check_payment_status(tracking_invoice_number)
+                status, transfer_id = check_payment_status(tracking_invoice_number)
                 st.write(f"Status: {status}")
+                
+                if "Sent" in status and transfer_id:
+                    estimated_delivery = get_delivery_estimate(transfer_id)
+                    if estimated_delivery:
+                        st.success(f"Estimated delivery date: {estimated_delivery.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+                    else:
+                        st.warning("Unable to retrieve estimated delivery date.")
+                
+                if "Sent" in status:
+                    st.success("Your payment/transfer has been sent successfully!")
+                elif any(state in status for state in ["Cancelled", "Refunded", "Charged back"]):
+                    st.error(f"Your payment/transfer has encountered an issue. Please contact support for assistance.")
+                elif "Bounced back" in status:
+                    st.warning("Your transfer has bounced back. It may be delivered with a delay or refunded.")
+                else:
+                    st.info(f"Your payment/transfer is currently being processed. Please check back later for updates.")
             else:
-                st.warning("Please enter an invoice number to track your payment or pre-authorization.")
+                st.warning("Please enter an invoice number to track your payment or transfer.")
 
     with tab3:
         st.header("Pre-authorization")
@@ -420,8 +366,8 @@ def main():
                 st.info(f"You can track the status of your pre-authorization using the invoice number: {preauth_invoice_number}")
 
     with tab4:
-        st.header("Bank Account Details and Direct Deposit")
-        st.warning("This is for direct bank deposit. You can view our account details or initiate a transfer.")
+        st.header("Direct Bank Deposit")
+        st.warning("This is for direct bank deposit which is quicker than using Stripe. You can view our account details or initiate a transfer.")
         
         selected_currency = st.selectbox("Select Currency", list(BANK_ACCOUNT_DETAILS.keys()))
         
@@ -468,29 +414,6 @@ def main():
                     st.error(f"An error occurred while initiating the transfer: {str(e)}")
             else:
                 st.warning("Please fill in all required banking details.")
-
-    with tab5:
-        st.header("Track Wise Transfer")
-        st.write("Enter your invoice number to track your Wise transfer.")
-        
-        tracking_invoice_number = st.text_input("Enter your invoice number")
-        if st.button("Track Wise Transfer"):
-            if tracking_invoice_number:
-                # In a real scenario, you'd need to store and retrieve the transfer ID associated with the invoice number
-                # For this example, we'll assume the transfer ID is the same as the invoice number
-                status = check_wise_transfer_status(tracking_invoice_number)
-                st.write(f"Transfer Status: {status}")
-                
-                if status == "Sent":
-                    st.success("Your transfer has been sent successfully!")
-                elif status in ["Cancelled", "Refunded", "Charged back"]:
-                    st.error(f"Your transfer has been {status.lower()}. Please contact support for assistance.")
-                elif status == "Bounced back":
-                    st.warning("Your transfer has bounced back. It may be delivered with a delay or refunded.")
-                else:
-                    st.info(f"Your transfer is currently {status.lower()}. Please check back later for updates.")
-            else:
-                st.warning("Please enter an invoice number to track your transfer.")
 
 if __name__ == "__main__":
     main()
