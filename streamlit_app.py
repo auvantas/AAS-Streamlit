@@ -420,9 +420,8 @@ def main():
         st.header("Direct Bank Transfer to Wise Account")
         st.info("This section allows you to initiate a direct bank transfer to our Wise account. Select a currency to view the required details and our bank information.")
 
-        # Function to generate a unique tracker ID
-        def generate_tracker_id():
-            return str(uuid.uuid4())
+        # Generate an invoice number instead of a tracker ID
+        invoice_number = generate_invoice_number()
 
         # Select currency
         available_currencies = list(ACCOUNT_DETAILS.keys())
@@ -455,23 +454,28 @@ def main():
 
             amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
 
-            # Generate and display a tracker ID
-            tracker_id = generate_tracker_id()
-            st.info(f"Your Tracker ID: {tracker_id}")
-            st.write("Please save this Tracker ID for future reference.")
+            # Display the invoice number
+            st.info(f"Your Invoice Number: {invoice_number}")
+            st.write("Please save this Invoice Number for future reference and tracking.")
 
             if st.button("Confirm Transfer Details", key="tab4_confirm_transfer"):
                 if all(user_details.values()):
                     # Here you would typically process the transfer details
-                    # For this example, we'll just display the information
-                    st.success("Transfer details confirmed successfully!")
-                    st.json({
-                        "tracker_id": tracker_id,
-                        "currency": selected_currency,
-                        "amount": amount,
-                        "user_details": user_details
-                    })
-                    st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
+                    # For this example, we'll simulate creating a Wise transfer
+                    try:
+                        transfer = create_wise_transfer(selected_currency, selected_currency, amount, user_details)
+                        st.success("Transfer initiated successfully!")
+                        st.json({
+                            "invoice_number": invoice_number,
+                            "wise_transfer_id": transfer.get('id', 'N/A'),
+                            "currency": selected_currency,
+                            "amount": amount,
+                            "user_details": user_details
+                        })
+                        st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
+                        st.warning(f"Use your Invoice Number ({invoice_number}) to track this transfer in the 'Track Payment' tab.")
+                    except Exception as e:
+                        st.error(f"Error initiating transfer: {str(e)}")
                 else:
                     st.warning("Please fill in all required transfer details.")
         else:
