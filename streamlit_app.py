@@ -23,7 +23,30 @@ DEBUG_MODE = st.secrets.app_settings.debug_mode
 DEFAULT_SOURCE_CURRENCY = st.secrets.currency_options.default_source
 DEFAULT_TARGET_CURRENCY = st.secrets.currency_options.default_target
 
-# ... (keep the existing CURRENCIES and BANK_TRANSFER_REQUIREMENTS dictionaries)
+# Add the CURRENCIES dictionary
+CURRENCIES = {
+    "BGN": "Bulgarian Lev - Bulgaria",
+    "CAD": "Canadian Dollar - Canada",
+    "CHF": "Swiss Franc - Switzerland and Liechtenstein",
+    "CNY": "Chinese Yuan - China",
+    "CZK": "Czech Koruna - Czech Republic",
+    "DKK": "Danish Krone - Denmark",
+    "EUR": "Euro - Multiple European countries",
+    "GBP": "British Pound - United Kingdom",
+    "HKD": "Hong Kong Dollar - Hong Kong",
+    "HUF": "Hungarian Forint - Hungary",
+    "ILS": "Israeli Shekel - Israel",
+    "NOK": "Norwegian Krone - Norway",
+    "NZD": "New Zealand Dollar - New Zealand",
+    "PLN": "Polish Zloty - Poland",
+    "RON": "Romanian Leu - Romania",
+    "SEK": "Swedish Krona - Sweden",
+    "SGD": "Singapore Dollar - Singapore",
+    "TRY": "Turkish Lira - Turkey",
+    "UGX": "Ugandan Shilling - Uganda",
+    "USD": "United States Dollar - United States",
+    "ZAR": "South African Rand - South Africa"
+}
 
 def generate_invoice_number():
     return f"INV-{random.randint(1000000, 9999999)}"
