@@ -177,84 +177,22 @@ def main():
 
         if payment_method == "Credit/Debit Card":
             st.subheader("Enter Card Details")
-            
-            stripe_public_key = get_stripe_public_key()
-            if stripe_public_key:
-                stripe_html = f"""
-                <script src="https://js.stripe.com/v3/"></script>
-                <form id="payment-form">
-                  <div id="card-element"><!-- Stripe Element will be inserted here --></div>
-                  <div id="card-errors" role="alert"></div>
-                  <button id="submit-button">Pay Now</button>
-                </form>
-
-                <script>
-                    var stripe = Stripe('{stripe_public_key}');
-                    var elements = stripe.elements();
-                    var card = elements.create('card');
-                    card.mount('#card-element');
-
-                    var form = document.getElementById('payment-form');
-                    form.addEventListener('submit', function(event) {{
-                        event.preventDefault();
-                        stripe.createPaymentMethod('card', card).then(function(result) {{
-                            if (result.error) {{
-                                var errorElement = document.getElementById('card-errors');
-                                errorElement.textContent = result.error.message;
-                            }} else {{
-                                // Send paymentMethod.id to your server
-                                fetch('/create-payment-intent', {{
-                                    method: 'POST',
-                                    headers: {{ 'Content-Type': 'application/json' }},
-                                    body: JSON.stringify({{
-                                        payment_method_id: result.paymentMethod.id,
-                                        amount: {int(amount * 100)},
-                                        currency: '{currency}',
-                                        invoice_number: '{invoice_number}'
-                                    }})
-                                }}).then(function(result) {{
-                                    return result.json();
-                                }}).then(function(data) {{
-                                    handleServerResponse(data);
-                                }});
-                            }}
-                        }});
-                    }});
-
-                    function handleServerResponse(response) {{
-                        if (response.error) {{
-                            // Show error from server on payment form
-                        }} else if (response.requires_action) {{
-                            // Use Stripe.js to handle required card action
-                            stripe.handleCardAction(
-                                response.payment_intent_client_secret
-                            ).then(handleStripeJsResult);
-                        }} else {{
-                            // Show success message
-                        }}
-                    }}
-
-                    function handleStripeJsResult(result) {{
-                        if (result.error) {{
-                            // Show error in payment form
-                        }} else {{
-                            // The card action has been handled
-                            // The PaymentIntent can be confirmed again on the server
-                        }}
-                    }}
-                </script>
-                """
-                html(stripe_html, height=300)
-            else:
-                st.error("Unable to load Stripe payment form due to missing configuration.")
+            card_number = st.text_input("Card Number")
+            exp_month = st.text_input("Expiration Month (MM)")
+            exp_year = st.text_input("Expiration Year (YYYY)")
+            cvc = st.text_input("CVC")
+            card_holder_name = st.text_input("Card Holder Name")
         
         else:  # Bank Transfer
             st.subheader("Enter Bank Account Details")
+            user_bank_details = {}
+            # Always include Account holder field
+            user_bank_details["Account holder"] = st.text_input("Account holder")
+            
             if currency in ACCOUNT_DETAILS:
                 bank_fields = ACCOUNT_DETAILS[currency]
-                user_bank_details = {}
                 for field, _ in bank_fields.items():
-                    if 'Swift' not in field and 'BIC' not in field:
+                    if field != "Account holder" and 'Swift' not in field and 'BIC' not in field:
                         user_bank_details[field] = st.text_input(field)
                 
                 # Determine payment method type based on currency
@@ -270,13 +208,31 @@ def main():
 
         if st.button("Confirm Payment", key="tab1_confirm_payment"):
             if payment_method == "Credit/Debit Card":
-                payment_intent = create_payment_intent(amount, currency, "card", description, invoice_number)
+                try:
+                    # Create PaymentMethod for card
+                    payment_method = stripe.PaymentMethod.create(
+                        type="card",
+                        card={
+                            "number": card_number,
+                            "exp_month": exp_month,
+                            "exp_year": exp_year,
+                            "cvc": cvc,
+                        },
+                        billing_details={"name": card_holder_name}
+                    )
+                    # Create and confirm PaymentIntent
+                    payment_intent = create_payment_intent(amount, currency, "card", description, invoice_number)
+                    if payment_intent:
+                        stripe.PaymentIntent.confirm(payment_intent.id, payment_method=payment_method.id)
+                except stripe.error.StripeError as e:
+                    st.error(f"Error creating payment method or confirming payment: {str(e)}")
+                    payment_intent = None
             elif payment_method == "Bank Transfer" and payment_method_type:
                 try:
                     # Create PaymentMethod for bank transfer
                     payment_method = stripe.PaymentMethod.create(
                         type=payment_method_type,
-                        billing_details={"name": user_bank_details.get("Account holder", "")},
+                        billing_details={"name": user_bank_details["Account holder"]},
                         **{payment_method_type: user_bank_details}
                     )
                     # Create and confirm PaymentIntent
