@@ -89,17 +89,27 @@ def generate_invoice_number():
 def create_payment_intent(amount, currency, payment_method_type, description, invoice_number):
     try:
         intent = stripe.PaymentIntent.create(
-            amount=int(amount * 100),  # Amount in cents
+            amount=int(amount * 100),  # Stripe expects amount in cents
             currency=currency,
             payment_method_types=[payment_method_type],
             description=description,
-            metadata={
-                'invoice_number': invoice_number
-            }
+            metadata={'invoice_number': invoice_number},
+            automatic_payment_methods={"enabled": True}
         )
         return intent
     except stripe.error.StripeError as e:
         st.error(f"Error creating PaymentIntent: {str(e)}")
+        return None
+
+def confirm_payment(payment_intent_id, payment_method_id):
+    try:
+        intent = stripe.PaymentIntent.confirm(
+            payment_intent_id,
+            payment_method=payment_method_id
+        )
+        return intent
+    except stripe.error.StripeError as e:
+        st.error(f"Error confirming payment: {str(e)}")
         return None
 
 def estimate_stripe_fees(amount, currency):
@@ -137,11 +147,10 @@ def check_payment_status(identifier):
 def main():
     st.title("Auvant Advisory Services")
 
-    if DEBUG_MODE:
-        st.sidebar.write("Debug Information:")
-        st.sidebar.write(f"Stripe API Key: {stripe.api_key[:10]}...")
-        st.sidebar.write(f"Default Source Currency: {DEFAULT_SOURCE_CURRENCY}")
-        st.sidebar.write(f"Default Target Currency: {DEFAULT_TARGET_CURRENCY}")
+    with st.expander("Debug Information"):
+        st.write(f"Stripe API Key: {stripe.api_key[:10]}...")
+        st.write(f"Default Source Currency: {DEFAULT_SOURCE_CURRENCY}")
+        st.write(f"Default Target Currency: {DEFAULT_TARGET_CURRENCY}")
 
     tab1, tab2, tab3, tab4 = st.tabs(["Make Payment", "Track Payment", "Pre-authorization", "Direct Bank Deposit"])
 
@@ -182,6 +191,7 @@ def main():
             exp_year = st.text_input("Expiration Year (YYYY)")
             cvc = st.text_input("CVC")
             card_holder_name = st.text_input("Card Holder Name")
+            payment_method_type = "card"
         
         else:  # Bank Transfer
             st.subheader("Enter Bank Account Details")
@@ -201,59 +211,55 @@ def main():
                 elif currency == "EUR":
                     payment_method_type = "sepa_debit"
                 else:
-                    payment_method_type = "bank_transfer"  # Generic type for other currencies
+                    payment_method_type = "customer_balance"  # Generic type for other currencies
             else:
                 st.error(f"Bank transfers are not supported for {currency}")
                 payment_method_type = None
 
         if st.button("Confirm Payment", key="tab1_confirm_payment"):
-            if payment_method == "Credit/Debit Card":
-                try:
-                    # Create PaymentMethod for card
-                    payment_method = stripe.PaymentMethod.create(
-                        type="card",
-                        card={
-                            "number": card_number,
-                            "exp_month": exp_month,
-                            "exp_year": exp_year,
-                            "cvc": cvc,
-                        },
-                        billing_details={"name": card_holder_name}
-                    )
-                    # Create and confirm PaymentIntent
-                    payment_intent = create_payment_intent(amount, currency, "card", description, invoice_number)
-                    if payment_intent:
-                        stripe.PaymentIntent.confirm(payment_intent.id, payment_method=payment_method.id)
-                except stripe.error.StripeError as e:
-                    st.error(f"Error creating payment method or confirming payment: {str(e)}")
-                    payment_intent = None
-            elif payment_method == "Bank Transfer" and payment_method_type:
-                try:
-                    # Create PaymentMethod for bank transfer
-                    payment_method = stripe.PaymentMethod.create(
-                        type=payment_method_type,
-                        billing_details={"name": user_bank_details["Account holder"]},
-                        **{payment_method_type: user_bank_details}
-                    )
-                    # Create and confirm PaymentIntent
-                    payment_intent = create_payment_intent(amount, currency, payment_method_type, description, invoice_number)
-                    if payment_intent:
-                        stripe.PaymentIntent.confirm(payment_intent.id, payment_method=payment_method.id)
-                except stripe.error.StripeError as e:
-                    st.error(f"Error creating payment method or confirming payment: {str(e)}")
-                    payment_intent = None
-            else:
-                st.error("Invalid payment method selected")
-                payment_intent = None
+            payment_intent = create_payment_intent(
+                amount,
+                currency,
+                payment_method_type,
+                description,
+                invoice_number
+            )
             
             if payment_intent:
-                st.success("Payment Intent created successfully!")
-                st.json(payment_intent)
-                st.info(f"Use this Client Secret to complete the payment: {payment_intent.client_secret}")
-                st.info(f"Your invoice number is: {invoice_number}. Please save this for tracking your payment.")
+                try:
+                    if payment_method == "Credit/Debit Card":
+                        payment_method = stripe.PaymentMethod.create(
+                            type="card",
+                            card={
+                                "number": card_number,
+                                "exp_month": exp_month,
+                                "exp_year": exp_year,
+                                "cvc": cvc,
+                            },
+                            billing_details={"name": card_holder_name}
+                        )
+                    else:  # Bank Transfer
+                        payment_method = stripe.PaymentMethod.create(
+                            type=payment_method_type,
+                            billing_details={"name": user_bank_details["Account holder"]},
+                            **{payment_method_type: user_bank_details}
+                        )
 
-                status, _ = check_payment_status(invoice_number)
-                st.write(f"Payment Status: {status}")
+                    confirmed_intent = confirm_payment(payment_intent.id, payment_method.id)
+
+                    if confirmed_intent and confirmed_intent.status == 'succeeded':
+                        st.success("Payment confirmed successfully!")
+                        st.json(confirmed_intent)
+                    elif confirmed_intent and confirmed_intent.status == 'requires_action':
+                        st.warning("This payment requires additional action. Please check your email or contact support.")
+                        st.json(confirmed_intent)
+                    else:
+                        st.error("Payment could not be confirmed. Please try again or contact support.")
+
+                except stripe.error.StripeError as e:
+                    st.error(f"Error processing payment: {str(e)}")
+            else:
+                st.error("Failed to create Payment Intent. Please try again.")
                 
     with tab2:
         st.header("Track Your Payment")
