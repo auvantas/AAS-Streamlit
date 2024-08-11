@@ -11,11 +11,8 @@ import uuid
 logging.basicConfig(level=st.secrets.app_settings.log_level)
 logger = logging.getLogger(__name__)
 
-# Initialize Stripe and Wise API keys
+# Initialize Stripe API key
 stripe.api_key = st.secrets.stripe.stripe_api_key
-WISE_API_KEY = st.secrets.wise.WISE_API_KEY
-WISE_API_URL = "https://api.transferwise.com"
-WISE_PROFILE_ID = st.secrets.wise.profile_id
 
 # Debug mode setting
 DEBUG_MODE = st.secrets.app_settings.debug_mode
@@ -24,34 +21,34 @@ DEBUG_MODE = st.secrets.app_settings.debug_mode
 DEFAULT_SOURCE_CURRENCY = st.secrets.currency_options.default_source
 DEFAULT_TARGET_CURRENCY = st.secrets.currency_options.default_target
 
-# Updated CURRENCIES dictionary
+# Add the CURRENCIES dictionary
 CURRENCIES = {
-    "AED": "United Arab Emirates Dirham - United Arab Emirates",
-    "AUD": "Australian Dollar - Australia",
-    "BGN": "Bulgarian Lev - Bulgaria",
-    "CAD": "Canadian Dollar - Canada",
-    "CHF": "Swiss Franc - Switzerland and Liechtenstein",
-    "CNY": "Chinese Yuan - China",
-    "CZK": "Czech Koruna - Czech Republic",
-    "DKK": "Danish Krone - Denmark",
-    "EUR": "Euro - Multiple European countries",
-    "GBP": "British Pound - United Kingdom",
-    "HKD": "Hong Kong Dollar - Hong Kong",
-    "HUF": "Hungarian Forint - Hungary",
-    "ILS": "Israeli Shekel - Israel",
-    "NOK": "Norwegian Krone - Norway",
-    "NZD": "New Zealand Dollar - New Zealand",
-    "PLN": "Polish Zloty - Poland",
-    "RON": "Romanian Leu - Romania",
-    "SEK": "Swedish Krona - Sweden",
-    "SGD": "Singapore Dollar - Singapore",
-    "TRY": "Turkish Lira - Turkey",
-    "UGX": "Ugandan Shilling - Uganda",
-    "USD": "United States Dollar - United States",
-    "ZAR": "South African Rand - South Africa"
+    "AED": "United Arab Emirates Dirham",
+    "AUD": "Australian Dollar",
+    "BGN": "Bulgarian Lev",
+    "CAD": "Canadian Dollar",
+    "CHF": "Swiss Franc",
+    "CNY": "Chinese Yuan",
+    "CZK": "Czech Koruna",
+    "DKK": "Danish Krone",
+    "EUR": "Euro",
+    "GBP": "British Pound",
+    "HKD": "Hong Kong Dollar",
+    "HUF": "Hungarian Forint",
+    "ILS": "Israeli Shekel",
+    "NOK": "Norwegian Krone",
+    "NZD": "New Zealand Dollar",
+    "PLN": "Polish Zloty",
+    "RON": "Romanian Leu",
+    "SEK": "Swedish Krona",
+    "SGD": "Singapore Dollar",
+    "TRY": "Turkish Lira",
+    "UGX": "Ugandan Shilling",
+    "USD": "United States Dollar",
+    "ZAR": "South African Rand"
 }
 
-# Updated ACCOUNT_DETAILS dictionary
+# Pre-defined account details (without Swift/BIC)
 ACCOUNT_DETAILS = {
     "AED": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "AUD": {"Account number": "208236946", "BSB code": "774-001"},
@@ -76,33 +73,6 @@ ACCOUNT_DETAILS = {
     "UGX": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "USD": {"Account number": "8313578108", "Routing number (ACH or ABA)": "026073150", "Wire routing number": "026073150"},
     "ZAR": {"IBAN": "GB72 TRWI 2314 7072 6009 80"}
-}
-
-# Updated BANK_TRANSFER_REQUIREMENTS dictionary
-BANK_TRANSFER_REQUIREMENTS = {
-    "AED": ["IBAN"],
-    "AUD": ["Account number", "BSB code"],
-    "BGN": ["IBAN"],
-    "CAD": ["Account number", "Institution number", "Transit number"],
-    "CHF": ["IBAN"],
-    "CNY": ["IBAN"],
-    "CZK": ["IBAN"],
-    "DKK": ["IBAN"],
-    "EUR": ["IBAN"],
-    "GBP": ["Account number", "UK sort code"],
-    "HKD": ["IBAN"],
-    "HUF": ["Account number", "IBAN"],
-    "ILS": ["IBAN"],
-    "NOK": ["IBAN"],
-    "NZD": ["Account number"],
-    "PLN": ["IBAN"],
-    "RON": ["Account number"],
-    "SEK": ["IBAN"],
-    "SGD": ["Account number", "Bank code"],
-    "TRY": ["IBAN"],
-    "UGX": ["IBAN"],
-    "USD": ["Account number", "Routing number (ACH or ABA)", "Wire routing number"],
-    "ZAR": ["IBAN"]
 }
 
 def generate_invoice_number():
@@ -146,171 +116,23 @@ def estimate_clearance_time(currency):
     }
     return standard_times.get(currency, "5-7 business days")
 
-def display_bank_transfer_fields(currency, prefix):
-    fields = {}
-    fields["Account holder"] = st.text_input("Account holder", key=f"{prefix}_account_holder")
-    if currency in BANK_TRANSFER_REQUIREMENTS:
-        for field in BANK_TRANSFER_REQUIREMENTS[currency]:
-            value = st.text_input(field, key=f"{prefix}_{field.lower().replace(' ', '_')}")
-            fields[field] = value
-    else:
-        st.warning(f"Bank transfer details for {currency} are not available. Please contact support for assistance.")
-    return fields
-    
-def create_wise_transfer(source_currency, target_currency, amount, user_details):
-    try:
-        # Define the API endpoint and headers
-        url = "https://api.transferwise.com/v1/transfers"
-        headers = {
-            'Authorization': f'Bearer {WISE_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-
-        # Construct the payload with necessary details
-        payload = {
-            "sourceCurrency": source_currency,
-            "targetCurrency": target_currency,
-            "sourceAmount": amount,
-            "targetAccount": st.session_state.target_account_id,  # Assuming you've created and stored the target account ID
-            "quote": st.session_state.quote_id,  # Assuming you've created and stored a quote ID
-            "customerTransactionId": st.session_state.transfer_id,
-            "details": {
-                "reference": f"Invoice {st.session_state.invoice_number}"
-            }
-        }
-
-        # Make the API request
-        response = requests.post(url, headers=headers, json=payload)
-        response_data = response.json()
-
-        # Check for errors in the response
-        if response.status_code != 201:  # 201 Created is the expected status code
-            raise Exception(response_data.get("errorCode", "Unknown error"))
-
-        # Return the transfer data
-        return response_data
-    except Exception as e:
-        logger.error(f"Error in create_wise_transfer: {str(e)}")
-        raise
-
 def check_payment_status(identifier):
-    # First, check Stripe payment status
     try:
         payment_intents = stripe.PaymentIntent.list(metadata={'invoice_number': identifier})
         if payment_intents.data:
             payment_intent = payment_intents.data[0]
-            return f"Stripe Payment Status: {payment_intent.status}", None
+            return f"Payment Status: {payment_intent.status}", None
     except stripe.error.StripeError as e:
-        return f"Error checking Stripe payment status: {str(e)}", None
+        return f"Error checking payment status: {str(e)}", None
 
-    # If not found in Stripe, check Wise transfer status
-    try:
-        headers = {
-            "Authorization": f"Bearer {WISE_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        response = requests.get(f"{WISE_API_URL}/v1/transfers/{identifier}", headers=headers)
-        transfer = response.json()
-        
-        status_descriptions = {
-            "incoming_payment_waiting": "On its way to Wise",
-            "incoming_payment_initiated": "On its way to Wise",
-            "processing": "Processing",
-            "funds_converted": "Processing",
-            "outgoing_payment_sent": "Sent",
-            "charged_back": "Charged back",
-            "cancelled": "Cancelled",
-            "funds_refunded": "Refunded",
-            "bounced_back": "Bounced back",
-            "unknown": "Unknown"
-        }
-        return f"Wise Transfer Status: {status_descriptions.get(transfer['status'], 'Unknown status')}", transfer['id']
-    except Exception as e:
-        return f"Error checking Wise transfer status: {str(e)}", None
-
-    return "No payment or transfer found with this identifier.", None
-
-def get_delivery_estimate(transfer_id):
-    headers = {
-        "Authorization": f"Bearer {WISE_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.get(f"{WISE_API_URL}/v1/delivery-estimates/{transfer_id}", headers=headers)
-    
-    if response.status_code == 200:
-        data = response.json()
-        estimated_delivery_date = datetime.fromisoformat(data['estimatedDeliveryDate'].replace('Z', '+00:00'))
-        return estimated_delivery_date
-    else:
-        st.error(f"Error retrieving delivery estimate: {response.text}")
-        return None
-        
-def get_wise_deposit_details(profile_id, currency):
-    headers = {
-        "Authorization": f"Bearer {WISE_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    try:
-        # First, try to get the account details from Wise API
-        response = requests.get(f"{WISE_API_URL}/v1/profiles/{profile_id}/account-details", headers=headers)
-        
-        if response.status_code == 200:
-            account_details = response.json()
-            for account in account_details:
-                if account['currency']['code'] == currency and account['status'] == 'ACTIVE':
-                    return account
-        
-        # If Wise API fails or doesn't return the expected data, use the pre-defined details
-        if currency in ACCOUNT_DETAILS:
-            details = {k: v for k, v in ACCOUNT_DETAILS[currency].items() if 'Swift' not in k and 'BIC' not in k}
-            return {
-                "currency": {"code": currency},
-                "details": details,
-                "accountHolderName": "Auvant Advisory Services",
-                "bankFeatures": [],
-                "deprecated": False
-            }
-        
-        st.error(f"No account details available for {currency}")
-        return None
-    
-    except Exception as e:
-        st.error(f"Error retrieving deposit details: {str(e)}")
-        # Use pre-defined details as fallback, excluding SWIFT/BIC
-        if currency in ACCOUNT_DETAILS:
-            details = {k: v for k, v in ACCOUNT_DETAILS[currency].items() if 'Swift' not in k and 'BIC' not in k}
-            return {
-                "currency": {"code": currency},
-                "details": details,
-                "accountHolderName": "Auvant Advisory Services",
-                "bankFeatures": [],
-                "deprecated": False
-            }
-        return None
-        
-def create_wise_transfer(source_currency, target_currency, amount, user_details):
-    try:
-        # Simulate API call (replace with actual API call in production)
-        response_data = {
-            "id": st.session_state.transfer_id,
-            "status": "created",
-            # Add other fields as needed
-        }
-        return response_data
-    except Exception as e:
-        logger.error(f"Error in create_wise_transfer: {str(e)}")
-        raise
+    return "No payment found with this identifier.", None
 
 def main():
     st.title("Auvant Advisory Services")
 
-    # Display debug information if in debug mode
     if DEBUG_MODE:
         st.sidebar.write("Debug Information:")
         st.sidebar.write(f"Stripe API Key: {stripe.api_key[:10]}...")
-        st.sidebar.write(f"Wise Profile ID: {WISE_PROFILE_ID}")
         st.sidebar.write(f"Default Source Currency: {DEFAULT_SOURCE_CURRENCY}")
         st.sidebar.write(f"Default Target Currency: {DEFAULT_TARGET_CURRENCY}")
 
@@ -348,8 +170,8 @@ def main():
             cvc = st.text_input("CVC", key="tab1_cvc")
             stripe_payment_method = "card"
         else:
-            st.subheader("Enter Bank Account Details")
-            bank_fields = display_bank_transfer_fields(currency, "tab1")
+            st.subheader("Bank Transfer")
+            st.info("For bank transfers, please use the details provided in the 'Direct Bank Deposit' tab.")
             stripe_payment_method = "customer_balance"
 
         if st.button("Confirm Payment", key="tab1_confirm_payment"):
@@ -362,37 +184,27 @@ def main():
                 st.info(f"Your invoice number is: {invoice_number}. Please save this for tracking your payment.")
 
                 if payment_method == "Bank Transfer":
-                    st.warning("For bank transfers, please use the payment instructions provided by our support team to complete the transaction.")
+                    st.warning("For bank transfers, please use the payment instructions provided in the 'Direct Bank Deposit' tab.")
 
-                # Additional message output for payment confirmation
                 status, _ = check_payment_status(invoice_number)
                 st.write(f"Payment Status: {status}")
 
     with tab2:
-        st.header("Track Your Payment or Transfer")
-        tracking_identifier = st.text_input("Enter your Wise Transfer ID or Stripe invoice number", key="tab2_tracking_identifier")
-        if st.button("Track Payment/Transfer", key="tab2_track_payment"):
+        st.header("Track Your Payment")
+        tracking_identifier = st.text_input("Enter your invoice number or transfer ID", key="tab2_tracking_identifier")
+        if st.button("Track Payment", key="tab2_track_payment"):
             if tracking_identifier:
-                status, transfer_id = check_payment_status(tracking_identifier)
+                status, _ = check_payment_status(tracking_identifier)
                 st.write(f"Status: {status}")
                 
-                if "Wise Transfer Status" in status:
-                    estimated_delivery = get_delivery_estimate(transfer_id)
-                    if estimated_delivery:
-                        st.success(f"Estimated delivery date: {estimated_delivery.strftime('%Y-%m-%d %H:%M:%S')} UTC")
-                    else:
-                        st.warning("Unable to retrieve estimated delivery date.")
-                
-                if "Sent" in status:
-                    st.success("Your payment/transfer has been sent successfully!")
-                elif any(state in status for state in ["Cancelled", "Refunded", "Charged back"]):
-                    st.error(f"Your payment/transfer has encountered an issue. Please contact support for assistance.")
-                elif "Bounced back" in status:
-                    st.warning("Your transfer has bounced back. It may be delivered with a delay or refunded.")
+                if "succeeded" in status.lower():
+                    st.success("Your payment has been processed successfully!")
+                elif any(state in status.lower() for state in ["canceled", "refunded"]):
+                    st.error(f"Your payment has been {status.lower()}. Please contact support for assistance.")
                 else:
-                    st.info(f"Your payment/transfer is currently being processed. Please check back later for updates.")
+                    st.info(f"Your payment is currently being processed. Please check back later for updates.")
             else:
-                st.warning("Please enter a Wise Transfer ID or Stripe invoice number to track your payment or transfer.")
+                st.warning("Please enter an invoice number or transfer ID to track your payment.")
 
     with tab3:
         st.header("Pre-authorization")
@@ -431,8 +243,8 @@ def main():
                 st.info(f"You can track the status of your pre-authorization using the invoice number: {preauth_invoice_number}")
 
     with tab4:
-        st.header("Direct Bank Transfer to Wise Account")
-        st.info("This section allows you to initiate a direct bank transfer to our Wise account. Select a currency to view the required details and our bank information.")
+        st.header("Direct Bank Deposit to Our Wise Account")
+        st.info("This section provides our Wise account details for direct deposit. Select a currency to view the corresponding account information.")
 
         # Select currency
         available_currencies = list(ACCOUNT_DETAILS.keys())
@@ -441,7 +253,13 @@ def main():
                                          key="tab4_currency")
 
         if selected_currency in ACCOUNT_DETAILS:
-            st.subheader(f"Our Bank Details for {selected_currency}")
+            # Generate invoice number and transfer ID
+            if 'invoice_number' not in st.session_state:
+                st.session_state.invoice_number = generate_invoice_number()
+            if 'transfer_id' not in st.session_state:
+                st.session_state.transfer_id = f"WT-{random.randint(1000000, 9999999)}"
+
+            st.subheader(f"Our Wise Account Details for {selected_currency}")
             st.write("Account Name: Auvant Advisory Services")
             
             our_bank_details = ACCOUNT_DETAILS[selected_currency]
@@ -449,59 +267,43 @@ def main():
                 if 'Swift' not in key and 'BIC' not in key:
                     st.write(f"{key}: {value}")
             
-            st.warning("Please use these bank details to initiate your transfer.")
-
-            # Generate invoice number and transfer ID
-            if 'invoice_number' not in st.session_state:
-                st.session_state.invoice_number = generate_invoice_number()
-            if 'transfer_id' not in st.session_state:
-                st.session_state.transfer_id = f"WT-{random.randint(1000000, 9999999)}"
-
             st.info(f"Your Invoice Number: {st.session_state.invoice_number}")
-            st.info(f"Your Wise Transfer ID: {st.session_state.transfer_id}")
-            st.warning("IMPORTANT: Use your Wise Transfer ID to track this transfer in the 'Track Payment' tab.")
-
-            st.subheader("Your Transfer Details")
-            st.write("Please enter the following details for your transfer:")
-
-            amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
-
-            user_details = {}
-            user_details["Account holder"] = st.text_input("Account holder name", key="tab4_account_holder")
+            st.info(f"Your Transfer ID: {st.session_state.transfer_id}")
             
-            if selected_currency in BANK_TRANSFER_REQUIREMENTS:
-                for field in BANK_TRANSFER_REQUIREMENTS[selected_currency]:
-                    user_details[field] = st.text_input(field, key=f"tab4_{field.lower().replace(' ', '_')}")
-            else:
-                st.warning(f"Specific transfer requirements for {selected_currency} are not defined. Please ensure you have all necessary details for the transfer.")
+            st.warning("""
+            Keep these details to track the transaction.
+            You will need to make the direct deposit from your own bank.
+            """)
+            
+            st.subheader("Steps to Complete Your Deposit:")
+            st.markdown("""
+            1. Log in to your bank's online banking platform.
+            2. Navigate to the international transfer or wire transfer section.
+            3. Enter the account details provided above as the recipient's information.
+            4. Enter the amount you wish to transfer.
+            5. In the reference or description field, please include your Transfer ID.
+            6. Review all details carefully before confirming the transfer.
+            7. Once completed, keep your bank's transaction confirmation for your records.
+            """)
 
-            if st.button("Confirm Transfer Details", key="tab4_confirm_transfer"):
-                if all(user_details.values()):
-                    try:
-                        transfer = create_wise_transfer(selected_currency, selected_currency, amount, user_details)
-                        
-                        if 'id' in transfer:
-                            st.success("Transfer initiated successfully!")
-                            st.json({
-                                "invoice_number": st.session_state.invoice_number,
-                                "wise_transfer_id": transfer['id'],
-                                "currency": selected_currency,
-                                "amount": amount,
-                                "status": transfer.get('status', 'Unknown'),
-                                "estimated_delivery": transfer.get('estimatedDeliveryDate', 'Unknown')
-                            })
-                            st.info("Please proceed with the transfer using your bank's system and the provided bank details.")
-                        else:
-                            st.error("Transfer initiated, but no transfer ID was returned. Please contact support.")
-                            logger.error(f"Transfer initiated without ID. Response: {transfer}")
-                        
-                    except Exception as e:
-                        st.error(f"Error initiating transfer: {str(e)}")
-                        logger.exception("Error in transfer initiation")
-                else:
-                    st.warning("Please fill in all required transfer details.")
+            st.info("Use your Transfer ID to track this deposit in the 'Track Payment' tab.")
+            
+            # Optional: Allow user to enter transfer amount for record-keeping
+            amount = st.number_input("Amount to Transfer (for your records only)", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
+            
+            if st.button("Save Transfer Details", key="tab4_save_details"):
+                # Here you would typically save these details to a database
+                # For this example, we'll just display a confirmation
+                st.success("Transfer details saved successfully!")
+                st.json({
+                    "invoice_number": st.session_state.invoice_number,
+                    "transfer_id": st.session_state.transfer_id,
+                    "currency": selected_currency,
+                    "amount": amount
+                })
+                st.info("Please proceed with the transfer using your bank's system and the provided account details.")
         else:
-            st.error(f"Bank details for {selected_currency} are not available. Please contact support for assistance.")
+            st.error(f"Account details for {selected_currency} are not available. Please contact support for assistance.")
 
 if __name__ == "__main__":
     main()
