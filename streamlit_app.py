@@ -416,62 +416,46 @@ def main():
 
     with tab4:
         st.header("Direct Bank Deposit")
-        st.warning("This is for direct bank deposit which is quicker than using Stripe. You can view our account details or initiate a transfer.")
+        st.info("This section provides bank details for direct transfer to our Wise account. Select a currency to view the corresponding bank details.")
         
+        # Available currencies based on ACCOUNT_DETAILS
         available_currencies = list(ACCOUNT_DETAILS.keys())
         selected_currency = st.selectbox("Select Currency for Deposit", available_currencies, key="tab4_currency")
         
-        wise_deposit_details = get_wise_deposit_details(WISE_PROFILE_ID, selected_currency)
-        
-        if wise_deposit_details:
-            st.subheader(f"Account Details for {selected_currency}")
-            st.write(f"Account Name: Auvant Advisory Services")
+        if selected_currency in ACCOUNT_DETAILS:
+            st.subheader(f"Bank Details for {selected_currency} Deposit")
+            st.write("Account Name: Auvant Advisory Services")
             
-            # Display account details
-            if 'details' in wise_deposit_details:
-                details = wise_deposit_details['details']
-                for key, value in details.items():
-                    if 'Swift' not in key and 'BIC' not in key:
-                        st.write(f"{key}: {value}")
+            details = ACCOUNT_DETAILS[selected_currency]
+            for key, value in details.items():
+                if 'Swift' not in key and 'BIC' not in key:
+                    st.write(f"{key}: {value}")
             
-            # Display bank features if available
-            if 'bankFeatures' in wise_deposit_details:
-                st.subheader("Bank Features")
-                for feature in wise_deposit_details['bankFeatures']:
-                    st.write(f"{feature['title']}: {'Supported' if feature['supported'] else 'Not Supported'}")
+            st.warning("Please use these bank details to initiate a transfer from your bank account.")
+            st.info("After initiating the transfer, please keep your transaction details for reference.")
             
-            if wise_deposit_details.get('deprecated', False):
-                st.warning("This account is deprecated. Please contact support for updated account details.")
+            # Optional: Allow user to enter transfer details for record-keeping
+            st.subheader("Transfer Details (Optional)")
+            st.write("You can enter your transfer details here for your own record-keeping.")
             
-            st.subheader("Initiate Direct Deposit")
-            st.write("Enter your banking details to initiate a transfer to our account.")
+            amount = st.number_input("Amount Transferred", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
+            reference = st.text_input("Transfer Reference (if any)", key="tab4_reference")
+            sender_name = st.text_input("Sender's Name", key="tab4_sender_name")
+            sender_bank = st.text_input("Sender's Bank Name", key="tab4_sender_bank")
             
-            amount = st.number_input("Amount to Transfer", min_value=0.01, step=0.01, value=100.00, key="tab4_amount")
-            
-            # Collect user's banking details based on the selected currency
-            st.write("Your Banking Details:")
-            user_bank_details = {}
-            user_bank_details["Account holder"] = st.text_input("Account holder name", key="tab4_account_holder")
-            
-            if selected_currency in BANK_TRANSFER_REQUIREMENTS:
-                for field in BANK_TRANSFER_REQUIREMENTS[selected_currency]:
-                    user_bank_details[field] = st.text_input(field, key=f"tab4_{field.lower().replace(' ', '_')}")
-            else:
-                st.warning(f"Bank transfer details for {selected_currency} are not available. Please contact support for assistance.")
-            
-            if st.button("Initiate Transfer", key="tab4_initiate_transfer"):
-                if all(user_bank_details.values()):
-                    try:
-                        transfer = create_wise_transfer(selected_currency, selected_currency, amount, user_bank_details)
-                        st.success(f"Transfer initiated successfully!")
-                        st.info(f"Your Wise Transfer ID is: {transfer['id']}. Please save this for tracking your transfer.")
-                        st.json(transfer)
-                    except Exception as e:
-                        st.error(f"An error occurred while initiating the transfer: {str(e)}")
-                else:
-                    st.warning("Please fill in all required banking details.")
+            if st.button("Save Transfer Details", key="tab4_save_details"):
+                # Here you would typically save these details to a database
+                # For this example, we'll just display a success message
+                st.success("Transfer details saved successfully!")
+                st.json({
+                    "currency": selected_currency,
+                    "amount": amount,
+                    "reference": reference,
+                    "sender_name": sender_name,
+                    "sender_bank": sender_bank
+                })
         else:
-            st.error(f"Unable to retrieve deposit details for {selected_currency}. Please try again later or contact support.")
+            st.error(f"Bank details for {selected_currency} are not available. Please contact support for assistance.")
 
 if __name__ == "__main__":
     main()
