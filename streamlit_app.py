@@ -24,8 +24,10 @@ DEBUG_MODE = st.secrets.app_settings.debug_mode
 DEFAULT_SOURCE_CURRENCY = st.secrets.currency_options.default_source
 DEFAULT_TARGET_CURRENCY = st.secrets.currency_options.default_target
 
-# Add the CURRENCIES dictionary
+# Updated CURRENCIES dictionary
 CURRENCIES = {
+    "AED": "United Arab Emirates Dirham - United Arab Emirates",
+    "AUD": "Australian Dollar - Australia",
     "BGN": "Bulgarian Lev - Bulgaria",
     "CAD": "Canadian Dollar - Canada",
     "CHF": "Swiss Franc - Switzerland and Liechtenstein",
@@ -49,7 +51,7 @@ CURRENCIES = {
     "ZAR": "South African Rand - South Africa"
 }
 
-# Pre-defined account details (without Swift/BIC)
+# Updated ACCOUNT_DETAILS dictionary
 ACCOUNT_DETAILS = {
     "AED": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "AUD": {"Account number": "208236946", "BSB code": "774-001"},
@@ -58,7 +60,7 @@ ACCOUNT_DETAILS = {
     "CHF": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "CNY": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "CZK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
-    "DDK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
+    "DKK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "EUR": {"IBAN": "BE60 9677 1622 9370"},
     "GBP": {"Account number": "72600980", "UK sort code": "23-14-70", "IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "HKD": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
@@ -70,35 +72,37 @@ ACCOUNT_DETAILS = {
     "RON": {"Account number": "RO25 BREL 0005 6019 4062 0100"},
     "SEK": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "SGD": {"Account number": "885-074-245-458", "Bank code": "7171"},
-    "TRY": {"IBAN": "TR22 0010 3000 0000 0057 5537 17",
+    "TRY": {"IBAN": "TR22 0010 3000 0000 0057 5537 17"},
     "UGX": {"IBAN": "GB72 TRWI 2314 7072 6009 80"},
     "USD": {"Account number": "8313578108", "Routing number (ACH or ABA)": "026073150", "Wire routing number": "026073150"},
     "ZAR": {"IBAN": "GB72 TRWI 2314 7072 6009 80"}
 }
 
-# Update BANK_TRANSFER_REQUIREMENTS to remove SWIFT options
+# Updated BANK_TRANSFER_REQUIREMENTS dictionary
 BANK_TRANSFER_REQUIREMENTS = {
+    "AED": ["IBAN"],
+    "AUD": ["Account number", "BSB code"],
     "BGN": ["IBAN"],
     "CAD": ["Account number", "Institution number", "Transit number"],
     "CHF": ["IBAN"],
-    "CNY": ["Account number", "Bank name", "Branch name"],
+    "CNY": ["IBAN"],
     "CZK": ["IBAN"],
     "DKK": ["IBAN"],
     "EUR": ["IBAN"],
-    "GBP": ["Account number", "Sort code"],
-    "HKD": ["Account number", "Bank code", "Branch code"],
-    "HUF": ["IBAN"],
+    "GBP": ["Account number", "UK sort code"],
+    "HKD": ["IBAN"],
+    "HUF": ["Account number", "IBAN"],
     "ILS": ["IBAN"],
     "NOK": ["IBAN"],
     "NZD": ["Account number"],
     "PLN": ["IBAN"],
-    "RON": ["IBAN"],
+    "RON": ["Account number"],
     "SEK": ["IBAN"],
     "SGD": ["Account number", "Bank code"],
     "TRY": ["IBAN"],
-    "UGX": ["Account number", "Bank name", "Branch name"],
-    "USD": ["Account number", "Routing number (ACH or ABA)"],
-    "ZAR": ["Account number", "Branch code"]
+    "UGX": ["IBAN"],
+    "USD": ["Account number", "Routing number (ACH or ABA)", "Wire routing number"],
+    "ZAR": ["IBAN"]
 }
 
 def generate_invoice_number():
