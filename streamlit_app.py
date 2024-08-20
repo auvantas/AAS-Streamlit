@@ -197,15 +197,29 @@ def main():
                   <div id="card-errors" role="alert"></div>
                 </form>
                 <script>
-                  
-                  var stripe = Stripe('{STRIPE_PUBLISHABLE_KEY}');
+                  var stripe = Stripe('{get_stripe_public_key()}');
                   var elements = stripe.elements();
-                  var style = {
-                    base: {
+                  var style = {{
+                    base: {{
                       color: '#32325d',
                       fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
                       fontSmoothing: 'antialiased',
-                      fontSize: '1
+                      fontSize: '16px',
+                      '::placeholder': {{
+                        color: '#aab7c4'
+                      }}
+                    }},
+                    invalid: {{
+                      color: '#fa755a',
+                      iconColor: '#fa755a'
+                    }}
+                  }};
+                  var card = elements.create('card', {{style: style}});
+                  card.mount('#card-element');
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
         
         else:  # Bank Transfer
             st.subheader("Enter Bank Account Details")
